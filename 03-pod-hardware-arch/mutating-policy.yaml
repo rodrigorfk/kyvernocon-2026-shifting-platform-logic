@@ -1,0 +1,84 @@
+# Migrated from: ClusterPolicy (kyverno.io/v1) → MutatingPolicy (policies.kyverno.io/v1)
+# Original: https://github.com/rodrigorfk/k8s-kyverno-mutating-policies/tree/main/src/examples/03-pod-hardware-arch
+#
+# This policy automatically assigns a default hardware architecture (nodeSelector)
+# to newly created pods when not explicitly specified. The default architecture
+# is read from the namespace label "policies.kyverno.io/default-arch", falling
+# back to "arm64".
+#
+# Key migration changes:
+#   - apiCall to GET namespace → namespaceObject (built-in CEL variable)
+#   - exclude.namespaceSelector → matchConditions (negated CEL check)
+#   - preconditions (ownerRef, nodeSelector, affinity) → matchConditions with CEL
+#   - patchesJson6902 → JSONPatch with CEL expression
+#   - JMESPath {{ ... || 'arm64' }} → CEL ternary operator
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: mutate-pod-hardware-arch
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+  matchConditions:
+    # Exclude namespaces that have opted out of default arch enforcement
+    - name: not-disabled-namespace
+      expression: >-
+        !has(namespaceObject.metadata.labels) ||
+        !(namespaceObject.metadata.labels.exists(k, k == "policies.kyverno.io/disable-default-arch-enforcement")) ||
+        namespaceObject.metadata.labels["policies.kyverno.io/disable-default-arch-enforcement"] != "true"
+    # Do not mutate pods owned by DaemonSets (they typically need to run on all architectures)
+    - name: not-daemonset-owned
+      expression: >-
+        !has(object.metadata.ownerReferences) ||
+        object.metadata.ownerReferences.size() == 0 ||
+        !object.metadata.ownerReferences.exists(ref, ref.kind == "DaemonSet")
+    # Only mutate if no architecture is already specified in nodeSelector
+    - name: no-arch-in-nodeselector
+      expression: >-
+        !has(object.spec.nodeSelector) ||
+        !("kubernetes.io/arch" in object.spec.nodeSelector)
+    # Only mutate if no architecture is already specified in affinity
+    # We check the requiredDuringSchedulingIgnoredDuringExecution and
+    # preferredDuringSchedulingIgnoredDuringExecution fields explicitly
+    - name: no-arch-in-affinity
+      expression: >-
+        !has(object.spec.affinity) ||
+        !has(object.spec.affinity.nodeAffinity) ||
+        (
+          (
+            !has(object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution) ||
+            !object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms.exists(term,
+              term.matchExpressions.exists(expr, expr.key == "kubernetes.io/arch")
+            )
+          ) &&
+          (
+            !has(object.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution) ||
+            !object.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution.exists(pref,
+              pref.preference.matchExpressions.exists(expr, expr.key == "kubernetes.io/arch")
+            )
+          )
+        )
+  variables:
+    # Read the default architecture from the namespace label, falling back to "arm64"
+    - name: defaultArch
+      expression: >-
+        has(namespaceObject.metadata.labels) &&
+        "policies.kyverno.io/default-arch" in namespaceObject.metadata.labels
+        ? namespaceObject.metadata.labels["policies.kyverno.io/default-arch"]
+        : "arm64"
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >-
+          Object{
+            spec: Object.spec{
+              nodeSelector: {
+                "kubernetes.io/arch": variables.defaultArch
+              }
+            }
+          }

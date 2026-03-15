@@ -1,0 +1,20 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  # Control plane (ingress entry point — exposes 80 to the host)
+  - role: control-plane
+    image: kindest/node:v1.35.1
+    labels:
+      ingress-ready: "true"
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 80
+        protocol: TCP
+
+  # Worker 1
+  - role: worker
+    image: kindest/node:v1.35.1
+
+  # Worker 2
+  - role: worker
+    image: kindest/node:v1.35.1

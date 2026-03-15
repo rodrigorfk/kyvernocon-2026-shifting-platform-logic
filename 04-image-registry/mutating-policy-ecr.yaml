@@ -1,0 +1,106 @@
+# Migrated from: ClusterPolicy (kyverno.io/v1) rules "replace-image-registry-pod-containers-ecr"
+# and "replace-image-registry-pod-init-containers-ecr" → MutatingPolicy (policies.kyverno.io/v1)
+# Original: https://github.com/rodrigorfk/k8s-kyverno-mutating-policies/tree/main/src/examples/04-image-registry
+#
+# This policy handles ECR cross-region image rewriting. When a pod references an
+# ECR image from a different AWS region, this policy:
+#   1. Extracts the registry ID from the ECR URL
+#   2. Calls the ecr-image-checker service to verify the image exists in the local region
+#   3. If it exists, rewrites the image URL to use the local region's ECR
+#
+# Key migration changes:
+#   - context.apiCall (POST to service) → http.Post() CEL library
+#   - context.variable with regex_replace_all → CEL matches() and string operations
+#   - foreach + context per element → CEL map() with inline expressions
+#   - images.containers."{{element.name}}".registry → image() CEL library
+#
+# TODO: verify against Kyverno v1.17 - calling http.Post() inside a map() iteration
+# may not be supported. If not, this policy may need to be restructured to handle
+# containers individually, or the external API call moved to a variable that
+# processes all containers at once.
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: mutate-ecr-cross-region
+spec:
+  webhookConfiguration:
+    timeoutSeconds: 15
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+  variables:
+    # Load the cluster's AWS region from ConfigMap
+    - name: clusterConfig
+      expression: >-
+        resource.Get("v1", "ConfigMap", "kube-system", "cluster-config")
+    - name: region
+      expression: >-
+        variables.clusterConfig.data["region"]
+    # ECR URL pattern: {registryId}.dkr.ecr.{region}.amazonaws.com
+    - name: ecrPattern
+      expression: >-
+        "^[0-9]+\\.dkr\\.ecr\\..+\\.amazonaws\\.com$"
+    - name: localEcrSuffix
+      expression: >-
+        ".dkr.ecr." + variables.region + ".amazonaws.com"
+  mutations:
+    # Rewrite ECR images from other regions to the local region (containers)
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          object.spec.containers.enumerate().filter(e,
+            image(e.value.image).registry.matches(variables.ecrPattern) &&
+            !image(e.value.image).registry.endsWith(variables.localEcrSuffix)
+          ).filter(e,
+            http.Post(
+              "http://ecr-image-checker.kube-system:9898/api/v1/image-exists",
+              {
+                "repositoryName": image(e.value.image).path,
+                "imageTag": image(e.value.image).tag != "" ? image(e.value.image).tag : "latest",
+                "registryId": image(e.value.image).registry.split(".")[0],
+                "region": variables.region
+              }
+            ).body.exists == true
+          ).map(e,
+            {
+              "op": "replace",
+              "path": "/spec/containers/" + string(e.index) + "/image",
+              "value":
+                image(e.value.image).registry.split(".")[0] + variables.localEcrSuffix +
+                "/" + image(e.value.image).path +
+                ":" + (image(e.value.image).tag != "" ? image(e.value.image).tag : "latest")
+            }
+          )
+    # Same logic for initContainers
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          has(object.spec.initContainers)
+          ? object.spec.initContainers.enumerate().filter(e,
+              image(e.value.image).registry.matches(variables.ecrPattern) &&
+              !image(e.value.image).registry.endsWith(variables.localEcrSuffix)
+            ).filter(e,
+              http.Post(
+                "http://ecr-image-checker.kube-system:9898/api/v1/image-exists",
+                {
+                  "repositoryName": image(e.value.image).path,
+                  "imageTag": image(e.value.image).tag != "" ? image(e.value.image).tag : "latest",
+                  "registryId": image(e.value.image).registry.split(".")[0],
+                  "region": variables.region
+                }
+              ).body.exists == true
+            ).map(e,
+              {
+                "op": "replace",
+                "path": "/spec/initContainers/" + string(e.index) + "/image",
+                "value":
+                  image(e.value.image).registry.split(".")[0] + variables.localEcrSuffix +
+                  "/" + image(e.value.image).path +
+                  ":" + (image(e.value.image).tag != "" ? image(e.value.image).tag : "latest")
+              }
+            )
+          : []

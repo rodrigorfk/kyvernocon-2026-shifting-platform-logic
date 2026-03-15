@@ -1,0 +1,95 @@
+# Migrated from: ClusterPolicy (kyverno.io/v1) rules "replace-image-registry-pod-containers"
+# and "replace-image-registry-pod-init-containers" → MutatingPolicy (policies.kyverno.io/v1)
+# Original: https://github.com/rodrigorfk/k8s-kyverno-mutating-policies/tree/main/src/examples/04-image-registry
+#
+# This policy replaces public image registries (docker.io, gcr.io, ghcr.io, quay.io,
+# public.ecr.aws, registry.k8s.io) with private ECR pull-through cache alternatives.
+# The mapping is stored in a ConfigMap for easy updates.
+#
+# Key migration changes:
+#   - images.containers."{{element.name}}" → image() CEL library
+#   - context.configMap → resource.Get() in variables
+#   - foreach + elementIndex + patchesJson6902 → JSONPatch with CEL enumerate().filter().map()
+#   - JMESPath regex and string ops → CEL string functions and ternary
+#   - Docker Hub library/ prefix logic preserved in CEL
+#   - Separate rules for containers/initContainers → single policy with two mutations
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: mutate-public-registry-containers
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+  matchConditions:
+    # Only apply to pods without imagePullSecrets (those with secrets likely
+    # already have private registry access configured)
+    - name: no-imagepullsecrets
+      expression: >-
+        !has(object.spec.imagePullSecrets) ||
+        object.spec.imagePullSecrets.size() == 0
+  variables:
+    # Load the public-to-private registry mapping from ConfigMap
+    - name: registryMapping
+      expression: >-
+        resource.Get("v1", "ConfigMap", "kube-system", "public-registry-mapping")
+    - name: mappingData
+      expression: >-
+        variables.registryMapping.data
+  mutations:
+    # Mutate containers: replace public registry references with private ones
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          object.spec.containers.enumerate().filter(e,
+            image(e.value.image).registry in variables.mappingData
+          ).map(e,
+            {
+              "op": "replace",
+              "path": "/spec/containers/" + string(e.index) + "/image",
+              "value":
+                variables.mappingData[image(e.value.image).registry] + "/" +
+                (
+                  image(e.value.image).registry == "docker.io" &&
+                  !image(e.value.image).path.contains("/")
+                    ? "library/" + image(e.value.image).path
+                    : image(e.value.image).path
+                ) +
+                (
+                  image(e.value.image).digest != ""
+                    ? "@" + image(e.value.image).digest
+                    : ":" + (image(e.value.image).tag != "" ? image(e.value.image).tag : "latest")
+                )
+            }
+          )
+    # Mutate initContainers: same logic for init containers
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          has(object.spec.initContainers)
+          ? object.spec.initContainers.enumerate().filter(e,
+              image(e.value.image).registry in variables.mappingData
+            ).map(e,
+              {
+                "op": "replace",
+                "path": "/spec/initContainers/" + string(e.index) + "/image",
+                "value":
+                  variables.mappingData[image(e.value.image).registry] + "/" +
+                  (
+                    image(e.value.image).registry == "docker.io" &&
+                    !image(e.value.image).path.contains("/")
+                      ? "library/" + image(e.value.image).path
+                      : image(e.value.image).path
+                  ) +
+                  (
+                    image(e.value.image).digest != ""
+                      ? "@" + image(e.value.image).digest
+                      : ":" + (image(e.value.image).tag != "" ? image(e.value.image).tag : "latest")
+                  )
+              }
+            )
+          : []

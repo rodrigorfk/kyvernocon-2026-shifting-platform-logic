@@ -1,0 +1,15 @@
+# Test resource - Pod with a Docker Hub image
+# Apply to test that the image gets rewritten to the private ECR pull-through cache:
+#   kubectl apply -f configs.yaml
+#   kubectl apply -f pod-docker-hub.yaml
+#   kubectl get pod test-docker-hub -o jsonpath='{.spec.containers[0].image}'
+# Expected: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-docker-hub
+spec:
+  containers:
+    - name: nginx
+      image: nginx

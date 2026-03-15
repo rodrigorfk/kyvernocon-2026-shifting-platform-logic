@@ -1,0 +1,49 @@
+# Kyverno v1.17.1 values for Kind playground
+# Chart version: 3.7.1
+
+# Admission controller: single replica for local dev + extra RBAC for policy examples
+admissionController:
+  replicas: 1
+  rbac:
+    clusterRole:
+      extraResources:
+        # Example 02: KEDA Prometheus Address
+        - apiGroups:
+            - keda.sh
+          resources:
+            - scaledobjects
+            - scaledjobs
+          verbs:
+            - get
+            - list
+            - watch
+            - update
+            - patch
+
+# Background controller: single replica + extra RBAC for background mutations
+backgroundController:
+  replicas: 1
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - keda.sh
+          resources:
+            - scaledobjects
+            - scaledjobs
+          verbs:
+            - get
+            - list
+            - watch
+            - update
+            - patch
+
+cleanupController:
+  replicas: 1
+
+reportsController:
+  replicas: 1
+
+# Extra config
+config:
+  resourceFiltersExcludeNamespaces: []

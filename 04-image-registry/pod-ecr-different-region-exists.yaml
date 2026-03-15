@@ -1,0 +1,16 @@
+# Test resource - Pod with an ECR image from a different region
+# Apply to test that the image gets rewritten to the local region's ECR:
+#   kubectl apply -f configs.yaml
+#   kubectl apply -f pod-ecr-different-region-exists.yaml
+#   kubectl get pod test-ecr-cross-region -o jsonpath='{.spec.containers[0].image}'
+# Expected: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/my-app:v1
+# (rewritten from us-east-1 to eu-west-1, if ecr-image-checker confirms the image exists)
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-ecr-cross-region
+spec:
+  containers:
+    - name: my-app
+      image: 000000000000.dkr.ecr.us-east-1.amazonaws.com/my-app:v1

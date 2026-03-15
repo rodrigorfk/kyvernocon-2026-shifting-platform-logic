@@ -1,0 +1,14 @@
+repositories:
+  - name: kyverno
+    url: https://kyverno.github.io/kyverno/
+
+releases:
+  - name: kyverno
+    namespace: kyverno
+    createNamespace: true
+    chart: kyverno/kyverno
+    version: "3.7.1"
+    values:
+      - values/kyverno.yaml
+    wait: true
+    waitForJobs: true

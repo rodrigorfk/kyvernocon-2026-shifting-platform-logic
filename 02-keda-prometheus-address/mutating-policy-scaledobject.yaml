@@ -1,0 +1,53 @@
+# Migrated from: ClusterPolicy (kyverno.io/v1) rule "scaled-object" → MutatingPolicy (policies.kyverno.io/v1)
+# Original: https://github.com/rodrigorfk/k8s-kyverno-mutating-policies/tree/main/src/examples/02-keda-prometheus-address
+#
+# Access Pattern 1: When a ScaledObject is created or updated with the opt-in
+# annotation, this policy reads the centralized Prometheus server address from
+# a ConfigMap and patches it into all prometheus-type triggers.
+#
+# Key migration changes:
+#   - match.all.resources.annotations → matchConditions with CEL
+#   - context.configMap → resource.Get() in variables
+#   - foreach + elementIndex + patchesJson6902 → JSONPatch with CEL enumerate().filter().map()
+#   - preconditions (element.type == prometheus) → filter() in CEL expression
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: keda-prometheus-serveraddress-scaledobject
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["keda.sh"]
+        apiVersions: ["v1alpha1"]
+        resources: ["scaledobjects"]
+        operations: ["CREATE", "UPDATE"]
+  matchConditions:
+    # Only apply to ScaledObjects that opt-in via annotation
+    - name: opt-in-annotation
+      expression: >-
+        has(object.metadata.annotations) &&
+        "keda.prometheus.sh/use-central-serveraddress" in object.metadata.annotations &&
+        object.metadata.annotations["keda.prometheus.sh/use-central-serveraddress"] == "true"
+  variables:
+    # Load the centralized Prometheus server address from the ConfigMap
+    - name: serverAddressCM
+      expression: >-
+        resource.Get("v1", "ConfigMap", "observability", "keda-prometheus-serveraddress")
+    - name: serverAddress
+      expression: >-
+        variables.serverAddressCM.data["main"]
+  mutations:
+    # Iterate over triggers, filter for prometheus type, and patch the serverAddress
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          object.spec.triggers.enumerate().filter(e,
+            has(e.value.type) && e.value.type == "prometheus"
+          ).map(e,
+            {
+              "op": "replace",
+              "path": "/spec/triggers/" + string(e.index) + "/metadata/serverAddress",
+              "value": variables.serverAddress
+            }
+          )
