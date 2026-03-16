@@ -5,7 +5,7 @@
 admissionController:
   replicas: 1
   rbac:
-    clusterRole:
+    clusterRole: &clusterRole
       extraResources:
         # Example 02: KEDA Prometheus Address
         - apiGroups:
@@ -24,25 +24,15 @@ admissionController:
 backgroundController:
   replicas: 1
   rbac:
-    clusterRole:
-      extraResources:
-        - apiGroups:
-            - keda.sh
-          resources:
-            - scaledobjects
-            - scaledjobs
-          verbs:
-            - get
-            - list
-            - watch
-            - update
-            - patch
+    clusterRole: *clusterRole
 
 cleanupController:
   replicas: 1
 
 reportsController:
   replicas: 1
+  rbac:
+    clusterRole: *clusterRole
 
 # Extra config
 config:
