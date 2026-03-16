@@ -5,11 +5,6 @@
 # annotation, this policy reads the centralized Prometheus server address from
 # a ConfigMap and patches it into all prometheus-type triggers.
 #
-# Key migration changes:
-#   - match.all.resources.annotations → matchConditions with CEL
-#   - context.configMap → resource.Get() in variables
-#   - foreach + elementIndex + patchesJson6902 → JSONPatch with CEL enumerate().filter().map()
-#   - preconditions (element.type == prometheus) → filter() in CEL expression
 ---
 apiVersion: policies.kyverno.io/v1
 kind: MutatingPolicy
@@ -27,13 +22,13 @@ spec:
     - name: opt-in-annotation
       expression: >-
         has(object.metadata.annotations) &&
-        "keda.prometheus.sh/use-central-serveraddress" in object.metadata.annotations &&
-        object.metadata.annotations["keda.prometheus.sh/use-central-serveraddress"] == "true"
+        "prometheus.keda.sh/use-central-serveraddress" in object.metadata.annotations &&
+        object.metadata.annotations["prometheus.keda.sh/use-central-serveraddress"] == "true"
   variables:
     # Load the centralized Prometheus server address from the ConfigMap
     - name: serverAddressCM
       expression: >-
-        resource.Get("v1", "ConfigMap", "observability", "keda-prometheus-serveraddress")
+        resource.Get("v1", "configmaps", "observability", "keda-prometheus-serveraddress")
     - name: serverAddress
       expression: >-
         variables.serverAddressCM.data["main"]
@@ -42,12 +37,12 @@ spec:
     - patchType: JSONPatch
       jsonPatch:
         expression: >-
-          object.spec.triggers.enumerate().filter(e,
-            has(e.value.type) && e.value.type == "prometheus"
+          object.spec.triggers.filter(e,
+            has(e.type) && e.type == "prometheus"
           ).map(e,
-            {
-              "op": "replace",
-              "path": "/spec/triggers/" + string(e.index) + "/metadata/serverAddress",
-              "value": variables.serverAddress
+            JSONPatch{
+              op: "replace",
+              path: "/spec/triggers/" + string(object.spec.triggers.indexOf(e)) + "/metadata/serverAddress",
+              value: string(variables.serverAddress)
             }
           )

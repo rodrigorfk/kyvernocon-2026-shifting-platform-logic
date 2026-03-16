@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keda-prometheus-serveraddress
+  namespace: observability
+  labels:
+    prometheus.keda.sh/central-serveraddress: "true"
+data:
+  main: http://prometheus-updated.example.com:9090

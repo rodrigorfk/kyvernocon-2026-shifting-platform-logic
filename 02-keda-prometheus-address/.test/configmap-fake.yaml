@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keda-prometheus-serveraddress-fake
+  namespace: observability
+data:
+  main: http://prometheus-fake.example.com:9090

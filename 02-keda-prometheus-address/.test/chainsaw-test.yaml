@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-keda-prometheus-address
+spec:
+  concurrent: false
+  steps:
+    - name: create observability namespace
+      try:
+        - apply:
+            file: namespace-observability.yaml
+    - name: create mutating policy 01
+      use:
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        with:
+          bindings:
+          - name: file
+            value: ../mutating-policy-scaledobject.yaml
+          - name: kind
+            value: MutatingPolicy
+          - name: name
+            value: keda-prometheus-serveraddress-scaledobject
+
+    - name: create mutating policy 02
+      use:
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        with:
+          bindings:
+          - name: file
+            value: ../mutating-policy-configmap.yaml
+          - name: kind
+            value: MutatingPolicy
+          - name: name
+            value: keda-prometheus-serveraddress-configmap
+
+    - name: create scaledobject and verify initial mutation
+      try:
+        - apply:
+            file: scaledobject.yaml
+        - assert:
+            file: scaledobject.yaml
+
+    - name: create central serverAddress configmap and verify initial mutation
+      try:
+        - apply:
+            file: configmap.yaml
+        - assert:
+            file: scaledobject-assert-initial.yaml
+
+    - name: update central serverAddress configmap and verify object was updated
+      try:
+        - apply:
+            file: configmap-updated.yaml
+        - assert:
+            file: scaledobject-assert-updated.yaml
+
+
+    - name: create fake configmap and verify object was not updated
+      try:
+        - apply:
+            file: configmap-fake.yaml
+        - sleep:
+            duration: 5s
+        - assert:
+            file: scaledobject-assert-updated.yaml
+
+    - name: create scaledobject without opt-in annotation and verify it does not get mutated
+      try:
+        - apply:
+            file: scaledobject-no-opt-in.yaml
+        - assert:
+            file: scaledobject-no-opt-in.yaml
+
+    - name: update central configmap once more to verify that ScaledObject without opt-in annotation does not get mutated
+      try:
+        - apply:
+            file: configmap-updated-2.yaml
+        - sleep:
+            duration: 5s
+        - assert:
+            file: scaledobject-no-opt-in.yaml
