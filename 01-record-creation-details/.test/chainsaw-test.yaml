@@ -12,36 +12,28 @@ spec:
             file: configmap-pre-policy.yaml
     - name: create mutating policy
       use:
-        template: ../../00-tests-steps/create-policy.yaml
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
         with:
           bindings:
           - name: file
             value: ../mutating-policy.yaml
+          - name: kind
+            value: MutatingPolicy
+          - name: name
+            value: record-creation-details
+
     - name: create validating policy
       use:
-        template: ../../00-tests-steps/create-policy.yaml
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
         with:
           bindings:
           - name: file
             value: ../validating-policy.yaml
-    - name: verify mutating policy is ready
-      use:
-        template: ../../00-tests-steps/mutating-policy-v1-ready.yaml
-        with:
-          bindings:
-          - name: name
-            value: record-creation-details
-    - name: verify validating policy is ready
-      use:
-        template: ../../00-tests-steps/validating-policy-v1-ready.yaml
-        with:
-          bindings:
+          - name: kind
+            value: ValidatingPolicy
           - name: name
             value: record-creation-details-protect
-    - name: sleep
-      try:
-        - sleep:
-            duration: 5s
+
     - name: create configmap
       try:
         - apply:

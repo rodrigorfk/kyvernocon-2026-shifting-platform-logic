@@ -2,14 +2,16 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: StepTemplate
 metadata:
-  name: mutating-policy-ready
+  name: create-policy
 spec:
   try:
+  - create:
+      file: ($file)
   - assert:
       template: true
       resource:
         apiVersion: policies.kyverno.io/v1
-        kind: MutatingPolicy
+        kind: ($kind)
         metadata:
           name: ($name)
         status:
