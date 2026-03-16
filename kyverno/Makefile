@@ -2,7 +2,7 @@ CONTEXT ?= kind-playground
 KUBECTL := kubectl --context $(CONTEXT)
 TIMEOUT := 180s
 
-.PHONY: deploy destroy status help
+.PHONY: deploy destroy status dev dev-stop help
 
 deploy: ## Install Kyverno
 	@echo " ⏳ Installing Kyverno..."
@@ -29,6 +29,14 @@ status: ## Show Kyverno status
 	@echo ""
 	@echo "=== GeneratingPolicies ==="
 	@$(KUBECTL) get generatingpolicies -A 2>/dev/null || echo "  (none)"
+
+dev: ## Prepare cluster for local Kyverno admission controller development
+	@bash dev-setup.sh
+
+dev-stop: ## Restore in-cluster Kyverno admission controller
+	@$(KUBECTL) -n kyverno scale deployment/kyverno-admission-controller --replicas=1
+	@$(KUBECTL) -n kyverno rollout status deployment/kyverno-admission-controller --timeout=$(TIMEOUT) > /dev/null
+	@echo " ✓ In-cluster Kyverno admission controller restored (webhooks will self-heal)"
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
