@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-fallback
+  namespace: test-arch-fallback
+spec:
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  containers:
+    - name: nginx
+      image: nginx

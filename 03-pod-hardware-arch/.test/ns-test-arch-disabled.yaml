@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-arch-disabled
+  labels:
+    policies.kyverno.io/disable-default-arch-enforcement: "true"
+    policies.kyverno.io/default-arch: amd64

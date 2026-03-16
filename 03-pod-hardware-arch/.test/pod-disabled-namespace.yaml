@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-disabled-namespace
+  namespace: test-arch-disabled
+spec:
+  containers:
+    - name: nginx
+      image: nginx

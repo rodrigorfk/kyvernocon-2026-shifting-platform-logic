@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-fallback
+  namespace: test-arch-fallback
+spec:
+  containers:
+    - name: nginx
+      image: nginx

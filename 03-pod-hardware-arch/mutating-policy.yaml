@@ -6,12 +6,6 @@
 # is read from the namespace label "policies.kyverno.io/default-arch", falling
 # back to "arm64".
 #
-# Key migration changes:
-#   - apiCall to GET namespace → namespaceObject (built-in CEL variable)
-#   - exclude.namespaceSelector → matchConditions (negated CEL check)
-#   - preconditions (ownerRef, nodeSelector, affinity) → matchConditions with CEL
-#   - patchesJson6902 → JSONPatch with CEL expression
-#   - JMESPath {{ ... || 'arm64' }} → CEL ternary operator
 ---
 apiVersion: policies.kyverno.io/v1
 kind: MutatingPolicy
@@ -24,13 +18,28 @@ spec:
         apiVersions: ["v1"]
         resources: ["pods"]
         operations: ["CREATE"]
+  variables:
+    # Load the centralized Prometheus server address from the ConfigMap
+    - name: namespaceObject
+      expression: >-
+        resource.Get("v1", "namespaces", "", object.metadata.namespace)
+    - name: namespaceLabels
+      expression: >-
+        has(variables.namespaceObject.metadata.labels)
+        ? variables.namespaceObject.metadata.labels
+        : {}
+    # Read the default architecture from the namespace label, falling back to "arm64"
+    - name: defaultArch
+      expression: >-
+        "policies.kyverno.io/default-arch" in variables.namespaceLabels
+        ? variables.namespaceLabels["policies.kyverno.io/default-arch"]
+        : "arm64"
   matchConditions:
     # Exclude namespaces that have opted out of default arch enforcement
     - name: not-disabled-namespace
       expression: >-
-        !has(namespaceObject.metadata.labels) ||
-        !(namespaceObject.metadata.labels.exists(k, k == "policies.kyverno.io/disable-default-arch-enforcement")) ||
-        namespaceObject.metadata.labels["policies.kyverno.io/disable-default-arch-enforcement"] != "true"
+        !(variables.namespaceLabels.exists(k, k == "policies.kyverno.io/disable-default-arch-enforcement")) ||
+        variables.namespaceLabels["policies.kyverno.io/disable-default-arch-enforcement"] != "true"
     # Do not mutate pods owned by DaemonSets (they typically need to run on all architectures)
     - name: not-daemonset-owned
       expression: >-
@@ -63,22 +72,24 @@ spec:
             )
           )
         )
-  variables:
-    # Read the default architecture from the namespace label, falling back to "arm64"
-    - name: defaultArch
-      expression: >-
-        has(namespaceObject.metadata.labels) &&
-        "policies.kyverno.io/default-arch" in namespaceObject.metadata.labels
-        ? namespaceObject.metadata.labels["policies.kyverno.io/default-arch"]
-        : "arm64"
   mutations:
-    - patchType: ApplyConfiguration
-      applyConfiguration:
+    - patchType: JSONPatch
+      jsonPatch:
         expression: >-
-          Object{
-            spec: Object.spec{
-              nodeSelector: {
-                "kubernetes.io/arch": variables.defaultArch
+          has(object.spec.nodeSelector)
+          ? [
+              JSONPatch{
+                op: "add",
+                path: "/spec/nodeSelector/kubernetes.io~1arch",
+                value: string(variables.defaultArch)
               }
-            }
-          }
+            ]
+          : [
+              JSONPatch{
+                op: "add",
+                path: "/spec/nodeSelector",
+                value: {
+                  "kubernetes.io/arch": string(variables.defaultArch)
+                }
+              }
+            ]

@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-mutate-pod-hardware-arch
+spec:
+  concurrent: false
+  steps:
+    - name: create test namespaces
+      try:
+        - apply:
+            file: ns-test-arch.yaml
+        - apply:
+            file: ns-test-arch-fallback.yaml
+        - apply:
+            file: ns-test-arch-disabled.yaml
+
+    - name: create mutating policy
+      use:
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        with:
+          bindings:
+          - name: file
+            value: ../mutating-policy.yaml
+          - name: kind
+            value: MutatingPolicy
+          - name: name
+            value: mutate-pod-hardware-arch
+
+    - name: mutate pod using namespace default arch label
+      try:
+        - apply:
+            file: pod-basic.yaml
+        - assert:
+            file: pod-basic-assert.yaml
+
+    - name: mutate pod using fallback arch when label is missing
+      try:
+        - apply:
+            file: pod-fallback.yaml
+        - assert:
+            file: pod-fallback-assert.yaml
+
+    - name: merge arch into existing nodeSelector without arch
+      try:
+        - apply:
+            file: pod-existing-nodeselector-no-arch.yaml
+        - assert:
+            file: pod-existing-nodeselector-no-arch-assert.yaml
+
+    - name: do not mutate when namespace enforcement is disabled
+      try:
+        - apply:
+            file: pod-disabled-namespace.yaml
+        - assert:
+            file: pod-disabled-namespace.yaml
+
+    - name: do not mutate when nodeSelector already has arch
+      try:
+        - apply:
+            file: pod-existing-arch-nodeselector.yaml
+        - assert:
+            file: pod-existing-arch-nodeselector.yaml
+
+    - name: do not mutate when required nodeAffinity already has arch
+      try:
+        - apply:
+            file: pod-existing-arch-affinity-required.yaml
+        - assert:
+            file: pod-existing-arch-affinity-required.yaml
+
+    - name: do not mutate when preferred nodeAffinity already has arch
+      try:
+        - apply:
+            file: pod-existing-arch-affinity-preferred.yaml
+        - assert:
+            file: pod-existing-arch-affinity-preferred.yaml
