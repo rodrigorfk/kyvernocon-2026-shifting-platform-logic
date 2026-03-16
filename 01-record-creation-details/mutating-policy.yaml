@@ -1,0 +1,36 @@
+# Migrated from: ClusterPolicy (kyverno.io/v1) → MutatingPolicy (policies.kyverno.io/v1)
+# Original: https://github.com/rodrigorfk/k8s-kyverno-mutating-policies/tree/main/src/examples/01-record-creation-details
+#
+# This policy records who created a ConfigMap by adding a "kyverno.io/created-by"
+# annotation with the requesting user's username.
+#
+# Key migration changes:
+#   - apiVersion: kyverno.io/v1 → policies.kyverno.io/v1
+#   - kind: ClusterPolicy → MutatingPolicy
+#   - match.any.resources → matchConstraints.resourceRules
+#   - patchStrategicMerge → ApplyConfiguration with CEL Object{}
+#   - JMESPath {{ request.userInfo | to_string(@) }} → CEL request.userInfo.username
+#     (simplified to username only; the legacy version serialized the entire userInfo object)
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: record-creation-details
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+        operations: ["CREATE"]
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: |
+          Object{
+            metadata: Object.metadata{
+              annotations: {
+                "kyverno.io/created-by": request.userInfo.username
+              }
+            }
+          }

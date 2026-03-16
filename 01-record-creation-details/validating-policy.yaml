@@ -1,0 +1,31 @@
+# Migrated from: ClusterPolicy (kyverno.io/v1) → ValidatingPolicy (policies.kyverno.io/v1)
+# Original: https://github.com/rodrigorfk/k8s-kyverno-mutating-policies/tree/main/src/examples/01-record-creation-details
+#
+# This policy prevents users from modifying or removing the "kyverno.io/created-by"
+# annotation that was set by the mutating policy during resource creation.
+#
+# Key migration changes:
+#   - kind: ClusterPolicy (validate rule) → ValidatingPolicy (dedicated CRD)
+#   - deny + conditions → validations with CEL expression
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: record-creation-details-protect
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+        operations: ["UPDATE"]
+  validations:
+    - expression: >-
+        (
+          (has(oldObject.metadata.annotations) && "kyverno.io/created-by" in oldObject.metadata.annotations) ==
+          (has(object.metadata.annotations) && "kyverno.io/created-by" in object.metadata.annotations)
+        ) && (
+          !(has(oldObject.metadata.annotations) && "kyverno.io/created-by" in oldObject.metadata.annotations) ||
+          object.metadata.annotations["kyverno.io/created-by"] == oldObject.metadata.annotations["kyverno.io/created-by"]
+        )
+      message: "The annotation kyverno.io/created-by is protected and may not be added, altered, or removed."
