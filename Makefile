@@ -9,8 +9,16 @@ INOTIFY_MAX_USER_INSTANCES := 512
 
 .PHONY: create delete status preflight install-keda-crds help
 
+KYVERNO_ADMISSION_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno:5b0fbc8c2cbd1abf234d165c9915bf6a41f01aa389abb10b38a1a9e665c6267d
+KYVERNO_BACKGROUND_IMAGE   := ko.local/github.com/kyverno/kyverno/cmd/background-controller:6fc45a8f2d181ad07c155b94b9b508b0f13e19f4f4fc56cd548252f7646bd988
+
 create: preflight ## Create the Kind cluster and install Kyverno + Envoy Gateway
 	@kind create cluster --name $(CLUSTER_NAME) --config $(KIND_CONFIG)
+	@echo ""
+	@echo " ⏳ Loading Kyverno images into Kind..."
+	@kind load docker-image $(KYVERNO_ADMISSION_IMAGE) --name $(CLUSTER_NAME)
+	@kind load docker-image $(KYVERNO_BACKGROUND_IMAGE) --name $(CLUSTER_NAME)
+	@echo " ✓ Kyverno images loaded"
 	@echo ""
 	@$(MAKE) --no-print-directory install-keda-crds
 	@$(MAKE) --no-print-directory -C kyverno deploy
