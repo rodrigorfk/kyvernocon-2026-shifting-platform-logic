@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provider-no-grpc
+  namespace: apps-no-grpc
+  labels:
+    kyverno.io/registry-provider: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: no-grpc
+  template:
+    metadata:
+      labels:
+        app: no-grpc
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25

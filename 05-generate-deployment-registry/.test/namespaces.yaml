@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: registry-engine
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps-enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps-no-service
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps-no-grpc

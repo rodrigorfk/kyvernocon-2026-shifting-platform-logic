@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-api
+  namespace: apps-enabled
+spec:
+  selector:
+    app: registry-provider
+    component: grpc
+  ports:
+    - name: grpc
+      port: 50052
+      targetPort: 50052
+      appProtocol: grpc

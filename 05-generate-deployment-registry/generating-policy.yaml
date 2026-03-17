@@ -1,0 +1,125 @@
+# Migrated from a Deployment registry metadata generation workflow to
+# GeneratingPolicy (policies.kyverno.io/v1alpha1).
+#
+# This policy watches Deployments labeled with:
+#   kyverno.io/registry-provider: "true"
+#
+# For each matching Deployment, it generates/synchronizes a ConfigMap in the
+# "registry-engine" namespace named:
+#   registry-<deployment-namespace>-<deployment-name>
+#
+# The generated ConfigMap reports registry integration status:
+# - enabled: "true"  when a matching Service exists and exposes a gRPC port
+# - enabled: "false" when no matching Service is found or no gRPC port exists
+#
+# Matching Service logic:
+# - Service must be in the same namespace as the Deployment
+# - Service selector labels must match Deployment pod template labels
+# - First Service port with appProtocol: grpc is used
+#
+# Synchronization behavior:
+# - synchronize.enabled=true keeps downstream ConfigMaps updated on source changes
+# - deployment generation and grpcAddress/reason are recalculated on CREATE/UPDATE
+# - orphanDownstreamOnPolicyDelete=true keeps generated ConfigMaps when policy is deleted
+
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: registry-generation-policy
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+    orphanDownstreamOnPolicyDelete:
+      enabled: true
+  matchConstraints:
+    objectSelector:
+      matchLabels:
+        kyverno.io/registry-provider: "true"
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  matchConditions:
+  - name: registry-engine-namespace-exists
+    expression: >-
+      has(resource.Get("v1", "namespaces", "", "registry-engine").metadata)
+  variables:
+  - name: deployNamespace
+    expression: "object.metadata.namespace"
+  - name: deployName
+    expression: "object.metadata.name"
+  - name: deployGeneration
+    expression: "object.metadata.generation"
+  - name: allServicesInNamespace
+    expression: >-
+      resource.List("v1", "services", variables.deployNamespace).items
+  - name: matchingService
+    expression: >-
+      variables.allServicesInNamespace.orValue([]).filter(svc, 
+          has(svc.spec.selector) && 
+          svc.spec.selector.all(k, 
+            k in object.spec.template.metadata.labels && 
+            svc.spec.selector[k] == object.spec.template.metadata.labels[k]
+          )
+        )
+        [?0].orValue({})
+  - name: grpcPort
+    expression: >-
+      variables.matchingService.?spec.?ports.orValue([])
+        .filter(port, port.?appProtocol.orValue("") == "grpc")
+        [?0].?port.orValue(0)
+  - name: configMapName
+    expression: "'registry-' + variables.deployNamespace + '-' + variables.deployName"
+  - name: hasMatchingService
+    expression: "variables.matchingService.?metadata.orValue({}).?name.orValue('') != ''"
+  - name: hasGrpcPort
+    expression: "variables.grpcPort != 0"
+  - name: isEnabled
+    expression: "variables.hasMatchingService && variables.hasGrpcPort"
+  - name: disabledReason
+    expression: >-
+      !variables.hasMatchingService ? 
+        "No matching Service found with selector matching deployment pods" :
+      !variables.hasGrpcPort ?
+        "No port with appProtocol: grpc found in Service" :
+      ""
+  - name: grpcAddress
+    expression: >-
+      variables.isEnabled ?
+      variables.matchingService.metadata.name + "." + variables.deployNamespace + ".svc.cluster.local:" + string(variables.grpcPort) : ""
+  - name: downstream
+    expression: >-
+      [
+        {
+          "kind": dyn("ConfigMap"),
+          "apiVersion": dyn("v1"),
+          "metadata": dyn({
+            "name": dyn(variables.configMapName),
+            "namespace": dyn("registry-engine"),
+            "labels": dyn({
+              "kyverno.io/registry-provider": "true"
+            })
+          }),
+          "data": dyn(
+            variables.isEnabled ?
+            {
+              "enabled": "true",
+              "namespace": string(variables.deployNamespace),
+              "deployment": string(variables.deployName),
+              "generation": string(variables.deployGeneration),
+              "grpcAddress": string(variables.grpcAddress)
+            } :
+            {
+              "enabled": "false",
+              "namespace": string(variables.deployNamespace),
+              "deployment": string(variables.deployName),
+              "generation": string(variables.deployGeneration),
+              "reason": string(variables.disabledReason)
+            }
+          )
+        }
+      ]
+  generate:
+  - expression: generator.Apply("registry-engine", variables.downstream)

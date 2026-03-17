@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-registry-generation-policy
+spec:
+  concurrent: false
+  steps:
+    - name: create test namespaces
+      try:
+        - apply:
+            file: namespaces.yaml
+
+    - name: create generating policy
+      use:
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        with:
+          bindings:
+          - name: file
+            value: ../generating-policy.yaml
+          - name: kind
+            value: GeneratingPolicy
+          - name: name
+            value: registry-generation-policy
+
+    - name: generate enabled registry config when matching grpc service exists
+      try:
+        - apply:
+            file: service-enabled.yaml
+        - apply:
+            file: deployment-enabled.yaml
+        - assert:
+            file: configmap-enabled-assert.yaml
+            timeout: 3s
+
+    - name: generate disabled config when no matching service exists
+      try:
+        - apply:
+            file: deployment-no-service.yaml
+        - assert:
+            file: configmap-no-service-assert.yaml
+            timeout: 3s
+
+    - name: generate disabled config when service has no grpc appProtocol
+      try:
+        - apply:
+            file: service-no-grpc.yaml
+        - apply:
+            file: deployment-no-grpc.yaml
+        - assert:
+            file: configmap-no-grpc-assert.yaml
+            timeout: 3s
+
+    - name: synchronize generated config on deployment and service update
+      try:
+        - apply:
+            file: service-enabled-updated.yaml
+        - apply:
+            file: deployment-enabled-updated.yaml
+        - assert:
+            file: configmap-enabled-updated-assert.yaml
+            timeout: 3s

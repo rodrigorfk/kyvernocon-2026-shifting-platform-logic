@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provider-a
+  namespace: apps-enabled
+  labels:
+    kyverno.io/registry-provider: "true"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: registry-provider
+      component: grpc
+  template:
+    metadata:
+      labels:
+        app: registry-provider
+        component: grpc
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.26

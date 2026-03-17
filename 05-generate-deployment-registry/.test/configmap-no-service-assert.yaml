@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: registry-apps-no-service-provider-no-service
+  namespace: registry-engine
+  labels:
+    kyverno.io/registry-provider: "true"
+data:
+  enabled: "false"
+  namespace: apps-no-service
+  deployment: provider-no-service
+  generation: "1"
+  reason: No matching Service found with selector matching deployment pods

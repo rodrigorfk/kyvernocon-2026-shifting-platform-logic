@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-http
+  namespace: apps-no-grpc
+spec:
+  selector:
+    app: no-grpc
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      appProtocol: http

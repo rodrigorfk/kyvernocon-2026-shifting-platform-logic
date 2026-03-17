@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provider-no-service
+  namespace: apps-no-service
+  labels:
+    kyverno.io/registry-provider: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: no-service
+  template:
+    metadata:
+      labels:
+        app: no-service
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25
