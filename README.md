@@ -1,131 +1,180 @@
-# Kyverno Policy Migration Playground
+# Playground — Kyverno Policy Engine
 
-## ClusterPolicy (JMESPath) → MutatingPolicy / GeneratingPolicy / ValidatingPolicy (CEL)
+A local Kubernetes environment for exploring Kyverno's new policy types (`MutatingPolicy`, `ValidatingPolicy`, `GeneratingPolicy`) using [Kind](https://github.com/kubernetes-sigs/kind/).
+Built as a companion to the [KyvernoCon 2026 talk: **"Shifting Platform Logic into the Control Plane"**](https://colocatedeventseu2026.sched.com/event/2DY8H/kyverno-mutating-policies-shifting-platform-logic-into-the-control-plane-rodrigo-fior-kuntzer-miro?iframe=no&w=&sidebar=yes&bg=no).
 
-This playground contains 5 examples migrated from the legacy Kyverno `ClusterPolicy` CRD (`kyverno.io/v1`) to the new dedicated policy CRDs (`policies.kyverno.io/v1`) introduced in Kyverno v1.17, plus a local Kind cluster to test them.
+## Cluster Topology
 
-**Original repository:** [rodrigorfk/k8s-kyverno-mutating-policies](https://github.com/rodrigorfk/k8s-kyverno-mutating-policies)
+The Kind cluster runs 3 nodes (1 control-plane + 2 workers) on Kubernetes v1.35.1:
+
+```
+playground
+├── control-plane (ingress-ready, hostPort 80 → 30080)
+├── worker-1
+└── worker-2
+```
+
+The control-plane node maps `hostPort:80 → containerPort:30080`. Envoy Gateway is deployed as a NodePort service on that port, enabling access to in-cluster services via `*.127.0.0.1.nip.io` hostnames from the host machine.
+
+## What Gets Deployed
+
+The `make create` target sets up the full environment:
+
+1. **Kind cluster** — 3-node cluster with Kubernetes v1.35.1
+2. **Kyverno v3.7.1** — Policy engine with admission, background, cleanup, and reports controllers (all single-replica)
+3. **KEDA CRDs v2.19.0** — Only the CRDs (no KEDA operator), needed by Example 02
+4. **Envoy Gateway v1.7.1** — Ingress controller with Gateway API support
+
+## Prerequisites
+
+- [Kind](https://kind.sigs.k8s.io/) v0.31+
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [Helmfile](https://helmfile.readthedocs.io/) + [Helm](https://helm.sh/)
+- [Chainsaw](https://kyverno.github.io/chainsaw/) (for running tests)
+- Container runtime: **Colima** or **Docker Desktop** (macOS)
 
 ## Quick Start
 
-### Prerequisites
-
-- [Kind](https://kind.sigs.k8s.io/) v0.27+
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Helm](https://helm.sh/docs/intro/install/)
-- [Helmfile](https://github.com/helmfile/helmfile)
-- Container runtime: [Colima](https://github.com/abiosoft/colima) or Docker Desktop
-
-### Create the cluster
-
 ```bash
-make create       # Creates Kind cluster + installs Kyverno v1.17.1 + Envoy Gateway
-make status       # Verify everything is running
-```
+# Create the cluster (includes preflight checks + Kyverno + Envoy Gateway)
+make create
 
-### Test a policy
+# Check cluster status
+make status
 
-```bash
-kubectl apply -f 01-record-creation-details/mutating-policy.yaml
-kubectl apply -f 01-record-creation-details/configmap.yaml
-kubectl get configmap my-configmap -o jsonpath='{.metadata.annotations}'
-```
+# Apply a policy example
+kubectl apply -f 01-record-creation-details/
 
-### Tear down
+# Run that example's tests
+cd 01-record-creation-details/.test && chainsaw test
 
-```bash
+# Tear it down
 make delete
 ```
 
-### Components installed
+## Makefile Targets
 
-| Component | Version | Chart |
-|-----------|---------|-------|
-| Kubernetes (Kind) | v1.35.1 | — |
-| Kyverno | v1.17.1 | kyverno/kyverno 3.7.1 |
-| Envoy Gateway | v1.7.1 | envoyproxy/gateway-helm 1.7.1 |
+| Target             | Description                                              |
+|--------------------|----------------------------------------------------------|
+| `create`           | Run preflight, create cluster, load images, install KEDA CRDs, deploy Kyverno + Envoy Gateway |
+| `delete`           | Delete the Kind cluster                                  |
+| `status`           | Show cluster info, Kyverno pods, policies, and Envoy Gateway |
+| `install-keda-crds`| Install KEDA CRDs without deploying the KEDA operator    |
+| `preflight`        | Detect container runtime and ensure inotify limits        |
+| `help`             | List all targets                                         |
 
-## Why Migrate?
+## Preflight Checks
 
-Kyverno v1.17 (Jan 2026) marks the `ClusterPolicy` CRD as deprecated, with removal planned for v1.20 (Oct 2026). The new policy types offer:
+Running multiple Kind nodes requires higher inotify limits than the macOS VM defaults. The `preflight` target automatically:
 
-- **Dedicated CRDs** for each action: `MutatingPolicy`, `ValidatingPolicy`, `GeneratingPolicy`, `DeletingPolicy`, `ImageValidatingPolicy`
-- **CEL (Common Expression Language)** instead of JMESPath — aligning with the Kubernetes ecosystem
-- **Extended CEL libraries**: `resource.Get()`, `http.Post()`, `image()`, `json.unmarshal()`, and more
-- **Background mutation** with first-class support
-- **Automatic MutatingAdmissionPolicy generation** (native K8s admission)
+1. Detects whether you're running **Colima** or **Docker Desktop**
+2. Checks `fs.inotify.max_user_watches` and `fs.inotify.max_user_instances` inside the VM
+3. Bumps them to `524288` / `512` if below threshold
 
-## Examples
+Without this, kube-proxy and other components fail with `too many open files`.
 
-| # | Example | Policy Types | Key CEL Features |
-|---|---------|-------------|-----------------|
-| 01 | [Record Creation Details](01-record-creation-details/) | MutatingPolicy + ValidatingPolicy | `request.userInfo`, `ApplyConfiguration`, `oldObject` |
-| 02 | [KEDA Prometheus Address](02-keda-prometheus-address/) | 2x MutatingPolicy | `resource.Get()`, `enumerate().filter().map()`, background mutation |
-| 03 | [Pod Hardware Architecture](03-pod-hardware-arch/) | MutatingPolicy | `namespaceObject`, `matchConditions`, `has()` checks |
-| 04 | [Image Registry](04-image-registry/) | 3x MutatingPolicy | `image()` library, `http.Post()`, ConfigMap lookups, string operations |
-| 05 | [Sidecar Injection](05-sidecar-inject/) | MutatingPolicy + GeneratingPolicy | `generator.Apply()`, rich `variables`, `ApplyConfiguration` |
+## Policy Examples
 
-## Migration Reference
+Each numbered directory demonstrates a distinct Kyverno policy pattern. All examples include comprehensive [Chainsaw](https://kyverno.github.io/chainsaw/) tests in a `.test/` subdirectory.
 
-| Concept | Legacy ClusterPolicy | New Policy CRDs |
-|---------|---------------------|-----------------|
-| API Version | `kyverno.io/v1` | `policies.kyverno.io/v1` |
-| Expression Language | JMESPath | CEL |
-| Resource Matching | `match.resources.kinds/operations` | `matchConstraints.resourceRules` |
-| Conditions | `preconditions` | `matchConditions` (CEL expressions) |
-| ConfigMap Access | `context.configMap` | `resource.Get("v1", "ConfigMap", ns, name)` |
-| K8s API Calls | `context.apiCall` (GET/POST) | `resource.Get()` / `resource.List()` |
-| External API Calls | `context.apiCall` with `service` | `http.Get()` / `http.Post()` |
-| Merge Patch | `patchStrategicMerge` | `ApplyConfiguration` with `Object{}` |
-| JSON Patch | `patchesJson6902` | `JSONPatch` with CEL expression |
-| Iteration | `foreach` + `element` + `elementIndex` | CEL `enumerate().filter().map()` |
-| Background Mutation | `mutate.targets` | `evaluation.background.enabled` |
-| Resource Generation | `generate.data` | `generate` with `generator.Apply()` |
-| Namespace Data | `apiCall` GET namespace | `namespaceObject` (built-in) |
-| Image Parsing | `images.containers` context | `image()` CEL library |
-| User Info | `request.userInfo \| to_string(@)` | `request.userInfo.username` / `.groups` |
+### 01 — Record Creation Details
 
-## CEL Quick Reference
+**Type:** MutatingPolicy + ValidatingPolicy
 
-```cel
-# Ternary (replaces JMESPath || fallback)
-has(object.metadata.labels) && "key" in object.metadata.labels
-  ? object.metadata.labels["key"]
-  : "default-value"
+Adds a `kyverno.io/created-by` annotation to every ConfigMap at creation time, recording the requesting user's username. A companion ValidatingPolicy protects the annotation from modification or removal.
 
-# Resource lookup (replaces context.configMap)
-resource.Get("v1", "ConfigMap", "namespace", "name").data["key"]
+**Patterns demonstrated:** ApplyConfiguration mutation, CEL access to `request.userInfo`, immutable annotation enforcement.
 
-# Image parsing (replaces images.containers context)
-image("nginx:latest").registry    // "docker.io"
-image("nginx:latest").path        // "library/nginx"
-image("nginx:latest").tag         // "latest"
+### 02 — KEDA Prometheus Address
 
-# Iteration with index (replaces foreach + elementIndex)
-object.spec.containers.enumerate().filter(e,
-  e.value.image.startsWith("public.ecr.aws")
-).map(e,
-  {"op": "replace", "path": "/spec/containers/" + string(e.index) + "/image", "value": "..."}
-)
+**Type:** MutatingPolicy (x2)
 
-# HTTP call (replaces apiCall with service)
-http.Post("http://service:8080/api/check", {"key": "value"}).body
+Bidirectional configuration propagation between a centralized ConfigMap and KEDA ScaledObjects:
 
-# Namespace access (replaces apiCall GET namespace)
-namespaceObject.metadata.labels["my-label"]
+- **ScaledObject policy** — When a ScaledObject is created/updated with the opt-in annotation `prometheus.keda.sh/use-central-serveraddress: "true"`, reads the Prometheus address from a ConfigMap and patches all prometheus-type triggers.
+- **ConfigMap policy** — When the ConfigMap is updated, pushes the new address to all opted-in ScaledObjects in the cluster (mutateExisting).
+
+**Patterns demonstrated:** Cross-resource lookups via `resource.Get()`, JSONPatch with `filter()` and `map()`, bidirectional sync, opt-in annotations.
+
+### 03 — Pod Hardware Architecture
+
+**Type:** MutatingPolicy
+
+Automatically assigns a default CPU architecture (`nodeSelector: kubernetes.io/arch`) to newly created pods. The default is read from the namespace label `policies.kyverno.io/default-arch`, falling back to `arm64`.
+
+**Patterns demonstrated:** Namespace-level configuration via labels, conditional skipping (DaemonSets, existing nodeSelector/affinity), fallback defaults, `resource.Get()` for namespace lookups.
+
+### 04 — Image Registry Rewriting
+
+**Type:** MutatingPolicy (x3)
+
+Enforces private registry usage by rewriting container images at admission time:
+
+- **Public registry policy** — Rewrites public registries (docker.io, gcr.io, ghcr.io, quay.io, public.ecr.aws, registry.k8s.io) to private ECR pull-through cache alternatives using a ConfigMap-driven mapping.
+- **ECR cross-region policy** — Rewrites ECR images from other regions to the local region's registry.
+- **Pull secret policy** — Injects `imagePullSecrets` for private registry proxy access.
+
+**Patterns demonstrated:** CEL `image()` built-in for registry/repository/tag/digest parsing, ConfigMap-driven mappings, handling Docker Hub's implicit `library/` prefix, init container mutation.
+
+### 05 — Deployment Registry Generation
+
+**Type:** GeneratingPolicy (v1alpha1)
+
+Watches Deployments labeled `kyverno.io/registry-provider: "true"` and generates ConfigMaps in a `registry-engine` namespace with registry integration status. Discovers matching Services via label selector comparison and checks for gRPC port availability.
+
+**Patterns demonstrated:** GeneratingPolicy with `generator.Apply()`, `resource.List()` for service discovery, synchronization (downstream stays updated), orphaning on policy delete, complex CEL variable chains.
+
+## Shared Test Infrastructure
+
+The `00-tests-steps/` directory contains a reusable Chainsaw `StepTemplate` that all examples reference. It creates a policy and asserts that both `WebhookConfigured` and `RBACPermissionsGranted` conditions are `True` before proceeding — ensuring the policy is fully operational before test assertions run.
+
+## Directory Structure
+
 ```
-
-## Known Limitations & TODOs
-
-1. **Background cross-resource mutation** (Example 02, rule 2): The exact syntax for "when ConfigMap changes, mutate existing ScaledObjects" in the new MutatingPolicy CRD needs verification against Kyverno v1.17.
-2. **HTTP calls inside iteration** (Example 04, ECR policy): Calling `http.Post()` inside a `map()` expression may not be supported in CEL. If not, the policy needs restructuring.
-3. **Object construction depth** (Example 05): Very large `ApplyConfiguration` expressions with deeply nested objects (probes, lifecycle hooks) may hit expression complexity limits.
-4. All uncertain patterns are marked with `# TODO: verify against Kyverno v1.17` in the policy files.
-
-## Documentation
-
-- [Policy Types Overview](https://kyverno.io/docs/policy-types/overview/)
-- [MutatingPolicy](https://kyverno.io/docs/policy-types/mutating-policy/)
-- [GeneratingPolicy](https://kyverno.io/docs/policy-types/generating-policy/)
-- [CEL Libraries](https://kyverno.io/docs/policy-types/cel-libraries/)
-- [ClusterPolicy (Legacy)](https://kyverno.io/docs/policy-types/cluster-policy/overview/)
+playground/
+├── Makefile                                    # Cluster lifecycle (create, delete, status, preflight)
+├── kind-config.yaml                            # Kind cluster definition (3 nodes, K8s v1.35.1)
+├── .tool-versions                              # Tool versions (kind 0.31.0)
+├── README.md                                   # This file
+│
+├── 00-tests-steps/
+│   └── create-policy-and-wait-ready.yaml       # Reusable Chainsaw StepTemplate
+│
+├── 01-record-creation-details/                 # Audit trail via annotations
+│   ├── mutating-policy.yaml                    # Adds "created-by" annotation on ConfigMap creation
+│   ├── validating-policy.yaml                  # Protects annotation from modification
+│   └── .test/chainsaw-test.yaml                # Tests: create, protect, verify
+│
+├── 02-keda-prometheus-address/                 # Cross-resource config propagation
+│   ├── mutating-policy-scaledobject.yaml       # ScaledObject → reads from ConfigMap
+│   ├── mutating-policy-configmap.yaml          # ConfigMap → pushes to ScaledObjects
+│   └── .test/chainsaw-test.yaml                # Tests: bidirectional sync
+│
+├── 03-pod-hardware-arch/                       # Intelligent pod defaults
+│   ├── mutating-policy.yaml                    # Auto-assigns CPU arch from namespace labels
+│   └── .test/chainsaw-test.yaml                # Tests: defaults, fallback, skipping
+│
+├── 04-image-registry/                          # Private registry enforcement
+│   ├── mutating-policy-public.yaml             # Rewrites public → private ECR
+│   ├── mutating-policy-ecr.yaml                # Rewrites ECR cross-region
+│   ├── mutating-policy-pullsecret.yaml         # Injects imagePullSecrets
+│   └── .test/chainsaw-test.yaml                # Tests: rewriting, secrets
+│
+├── 05-generate-deployment-registry/            # Declarative resource generation
+│   ├── generating-policy.yaml                  # Generates ConfigMaps from Deployments
+│   └── .test/chainsaw-test.yaml                # Tests: generation, sync, status
+│
+├── kyverno/                                    # Kyverno Helm installation
+│   ├── Makefile                                # deploy, destroy, status, dev, dev-stop
+│   ├── helmfile.yaml                           # kyverno/kyverno v3.7.1
+│   ├── values/kyverno.yaml                     # Single replicas, extra RBAC
+│   └── dev-setup.sh                            # Local dev: TLS certs, webhook patching
+│
+└── envoy-gateway/                              # Ingress controller
+    ├── Makefile                                # deploy, destroy, status
+    ├── helmfile.yaml                           # envoyproxy/gateway-helm v1.7.1
+    ├── values/envoy-gateway.yaml               # GatewayClass controller name
+    └── base/
+        ├── kustomization.yaml
+        └── gateway.yaml                        # EnvoyProxy (NodePort) + GatewayClass
+```
