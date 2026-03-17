@@ -1,0 +1,169 @@
+---
+# Expected: docker.io tag defaulted to :latest, registry rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-no-tag
+spec:
+  containers:
+    - name: nginx
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/nginx:latest
+---
+# Expected: docker.io tag preserved, registry rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-tag
+spec:
+  containers:
+    - name: nginx
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/nginx:1.21
+---
+# Expected: docker.io fully qualified image, registry rewritten, no path changes
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-full-qualified
+spec:
+  containers:
+    - name: nginx
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/nginx:latest
+---
+# Expected: docker.io fully qualified image without library, registry rewritten, should add library prefix
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-registry-no-library
+spec:
+  containers:
+    - name: nginx
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/nginx:latest
+---
+# Expected: docker.io digest preserved, registry rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-digest
+spec:
+  containers:
+    - name: alpine
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/alpine@sha256:eece025e432126ce23f223450a0326fbebde39cdf496ea279c5c3ea2882146ad
+---
+# Expected: docker.io with namespace, tag added
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-namespace
+spec:
+  containers:
+    - name: custom
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/myuser/myapp:v1
+---
+# Expected: GCR image rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-gcr
+spec:
+  containers:
+    - name: gke-app
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/gcr/google-samples/hello-app:2.0
+---
+# Expected: GHCR image rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-ghcr
+spec:
+  containers:
+    - name: github-app
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/github/myorg/myapp:latest
+---
+# Expected: Quay image rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-quay
+spec:
+  containers:
+    - name: quay-app
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/quay/mydomain/myimage:v2.0
+---
+# Expected: public.ecr.aws image rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-ecr-public
+spec:
+  containers:
+    - name: ecr-public-app
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/ecr-public/docker/library/postgres:15
+---
+# Expected: registry.k8s.io image rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-k8s-registry
+spec:
+  containers:
+    - name: kube-component
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/kubernetes/etcd:3.5.0
+---
+# Expected: both initContainers and containers rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-init-containers
+spec:
+  initContainers:
+    - name: init-app
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/alpine:latest
+  containers:
+    - name: main-app
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/nginx:latest
+---
+# Expected: multiple public registries rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-multi-registries
+spec:
+  containers:
+    - name: frontend
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/nginx:1.24
+    - name: backend
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/gcr/cloud-builders/docker:latest
+    - name: db
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/docker-hub/library/postgres:15
+---
+# Expected: imagePullSecrets prevents mutation - NO CHANGE
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-secrets
+spec:
+  imagePullSecrets:
+    - name: private-registry-secret
+  containers:
+    - name: private-app
+      image: nginx:latest
+---
+# Expected: already private, no mutation - NO CHANGE
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-private-ecr
+spec:
+  containers:
+    - name: private-app
+      image: 123456789012.dkr.ecr.eu-west-1.amazonaws.com/my-private-app:v1
+---
+# Expected: unknown registry, no mutation - NO CHANGE
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-unknown-registry
+spec:
+  containers:
+    - name: custom-registry
+      image: myregistry.example.com/myapp:v1

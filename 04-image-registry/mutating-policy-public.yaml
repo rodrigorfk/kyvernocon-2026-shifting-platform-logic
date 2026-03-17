@@ -6,13 +6,6 @@
 # public.ecr.aws, registry.k8s.io) with private ECR pull-through cache alternatives.
 # The mapping is stored in a ConfigMap for easy updates.
 #
-# Key migration changes:
-#   - images.containers."{{element.name}}" → image() CEL library
-#   - context.configMap → resource.Get() in variables
-#   - foreach + elementIndex + patchesJson6902 → JSONPatch with CEL enumerate().filter().map()
-#   - JMESPath regex and string ops → CEL string functions and ternary
-#   - Docker Hub library/ prefix logic preserved in CEL
-#   - Separate rules for containers/initContainers → single policy with two mutations
 ---
 apiVersion: policies.kyverno.io/v1
 kind: MutatingPolicy
@@ -36,33 +29,45 @@ spec:
     # Load the public-to-private registry mapping from ConfigMap
     - name: registryMapping
       expression: >-
-        resource.Get("v1", "ConfigMap", "kube-system", "public-registry-mapping")
+        resource.Get("v1", "configmaps", "kube-system", "public-registry-mapping")
     - name: mappingData
       expression: >-
         variables.registryMapping.data
   mutations:
     # Mutate containers: replace public registry references with private ones
+    # - patchType: JSONPatch
+    #   jsonPatch:
+    #     expression: >-
+    #       object.spec.containers.filter(e,
+    #         image(e.image).registry() in variables.mappingData
+    #       ).map(e,
+    #         JSONPatch{
+    #           op: "replace",
+    #           path: "/metadata/annotations/kyverno.io~1mutate-public-registry-containers",
+    #           value: "true"
+    #         }
+    #       )
     - patchType: JSONPatch
       jsonPatch:
         expression: >-
-          object.spec.containers.enumerate().filter(e,
-            image(e.value.image).registry in variables.mappingData
+          object.spec.containers.filter(e,
+            image(e.image).registry() in variables.mappingData
           ).map(e,
-            {
-              "op": "replace",
-              "path": "/spec/containers/" + string(e.index) + "/image",
-              "value":
-                variables.mappingData[image(e.value.image).registry] + "/" +
+            JSONPatch{
+              op: "replace",
+              path: "/spec/containers/" + string(object.spec.containers.indexOf(e)) + "/image",
+              value:
+                variables.mappingData[image(e.image).registry()] + "/" +
                 (
-                  image(e.value.image).registry == "docker.io" &&
-                  !image(e.value.image).path.contains("/")
-                    ? "library/" + image(e.value.image).path
-                    : image(e.value.image).path
+                  image(e.image).registry() == "docker.io" &&
+                  !image(e.image).repository().contains("/")
+                    ? "library/" + image(e.image).repository()
+                    : image(e.image).repository()
                 ) +
                 (
-                  image(e.value.image).digest != ""
-                    ? "@" + image(e.value.image).digest
-                    : ":" + (image(e.value.image).tag != "" ? image(e.value.image).tag : "latest")
+                  image(e.image).digest() != ""
+                    ? "@" + image(e.image).digest()
+                    : ":" + (image(e.image).tag() != "" ? image(e.image).tag() : "latest")
                 )
             }
           )
@@ -71,24 +76,24 @@ spec:
       jsonPatch:
         expression: >-
           has(object.spec.initContainers)
-          ? object.spec.initContainers.enumerate().filter(e,
-              image(e.value.image).registry in variables.mappingData
+          ? object.spec.initContainers.filter(e,
+              image(e.image).registry() in variables.mappingData
             ).map(e,
-              {
-                "op": "replace",
-                "path": "/spec/initContainers/" + string(e.index) + "/image",
-                "value":
-                  variables.mappingData[image(e.value.image).registry] + "/" +
+              JSONPatch{
+                op: "replace",
+                path: "/spec/initContainers/" + string(object.spec.initContainers.indexOf(e)) + "/image",
+                value:
+                  variables.mappingData[image(e.image).registry()] + "/" +
                   (
-                    image(e.value.image).registry == "docker.io" &&
-                    !image(e.value.image).path.contains("/")
-                      ? "library/" + image(e.value.image).path
-                      : image(e.value.image).path
+                    image(e.image).registry() == "docker.io" &&
+                    !image(e.image).repository().contains("/")
+                      ? "library/" + image(e.image).repository()
+                      : image(e.image).repository()
                   ) +
                   (
-                    image(e.value.image).digest != ""
-                      ? "@" + image(e.value.image).digest
-                      : ":" + (image(e.value.image).tag != "" ? image(e.value.image).tag : "latest")
+                    image(e.image).digest() != ""
+                      ? "@" + image(e.image).digest()
+                      : ":" + (image(e.image).tag() != "" ? image(e.image).tag() : "latest")
                   )
               }
             )

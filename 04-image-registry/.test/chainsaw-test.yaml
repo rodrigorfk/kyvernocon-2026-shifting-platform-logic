@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-mutate-public-registry-containers
+spec:
+  concurrent: false
+  steps:
+    - name: create config data
+      try:
+        - apply:
+            file: configs.yaml
+
+    - name: create mutating policy
+      use:
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        with:
+          bindings:
+          - name: file
+            value: ../mutating-policy-public.yaml
+          - name: kind
+            value: MutatingPolicy
+          - name: name
+            value: mutate-public-registry-containers
+
+    - name: create mutating policy
+      use:
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        with:
+          bindings:
+          - name: file
+            value: ../mutating-policy-ecr.yaml
+          - name: kind
+            value: MutatingPolicy
+          - name: name
+            value: mutate-ecr-cross-region
+
+    - name: create mutating policy
+      use:
+        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        with:
+          bindings:
+          - name: file
+            value: ../mutating-policy-pullsecret.yaml
+          - name: kind
+            value: MutatingPolicy
+          - name: name
+            value: mutate-imagepullsecret-injection
+
+    - name: test comprehensive registry mutations
+      try:
+        - apply:
+            file: pods-comprehensive.yaml
+        - assert:
+            file: pods-comprehensive-assert.yaml
+            timeout: 1s
+
+    - name: test comprehensive ecr cross-region mutation
+      try:
+        - apply:
+            file: ecr-cross-region-pods.yaml
+        - assert:
+            file: ecr-cross-region-pods-assert.yaml
+            timeout: 1s
+
+    - name: test imagePullSecret injection for private registry
+      try:
+        - apply:
+            file: pullsecret-pods.yaml
+        - assert:
+            file: pullsecret-pods-assert.yaml
+            timeout: 1s

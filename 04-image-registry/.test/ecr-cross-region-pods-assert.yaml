@@ -1,0 +1,126 @@
+---
+# Expected: us-east-1 ECR rewritten to eu-west-1 with ecr-private prefix
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-cross-region-basic
+spec:
+  containers:
+    - name: my-app
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/my-app:v1
+---
+# Expected: us-west-2 ECR rewritten to eu-west-1 with ecr-private prefix
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-cross-region-different-account
+spec:
+  containers:
+    - name: app
+      image: 111111111111.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/other-app:latest
+---
+# Expected: ap-northeast-1 ECR with digest rewritten, digest preserved
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-cross-region-digest
+spec:
+  containers:
+    - name: app
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/my-service@sha256:eece025e432126ce23f223450a0326fbebde39cdf496ea279c5c3ea2882146ad
+---
+# Expected: ca-central-1 ECR with nested path rewritten to eu-west-1
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-cross-region-nested
+spec:
+  containers:
+    - name: app
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/team/service/app:v2.0
+---
+# Expected: no tag defaults to :latest
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-cross-region-no-tag
+spec:
+  containers:
+    - name: app
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/my-app:latest
+---
+# Expected: all containers rewritten to eu-west-1 with ecr-private prefix
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-multi-region-containers
+spec:
+  containers:
+    - name: frontend
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/frontend:v1
+    - name: backend
+      image: 111111111111.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/backend:v2
+    - name: database
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/postgres:latest
+---
+# Expected: ECR image rewritten by ECR policy and GHCR images rewritten by public policy
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-and-github-mixed
+spec:
+  containers:
+    - name: ecr-app
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/team/service:v1
+    - name: github-app
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/github/my-org/my-app:v2
+    - name: github-worker
+      image: 000.dkr.ecr.eu-west-1.amazonaws.com/github/my-org/worker:latest
+---
+# Expected: both initContainers and containers rewritten
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-init-containers
+spec:
+  initContainers:
+    - name: init-setup
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/init-script:v1
+  containers:
+    - name: main-app
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/app:v1
+---
+# Expected: initContainer and first container rewritten, second container matches region and should NOT mutate
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-init-and-multi
+spec:
+  initContainers:
+    - name: migration
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/db-migrate:v1
+  containers:
+    - name: web
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/ecr-private/web:v1
+    - name: api
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/api:v1
+---
+# Expected: same region, NO mutation
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-same-region
+spec:
+  containers:
+    - name: app
+      image: 000000000000.dkr.ecr.eu-west-1.amazonaws.com/my-app:v1
+---
+# Expected: ecr-private prefix ignored, NO mutation
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecr-private-prefix-exists
+spec:
+  containers:
+    - name: app
+      image: 000000000000.dkr.ecr.us-east-1.amazonaws.com/ecr-private/my-app:v1

@@ -1,0 +1,169 @@
+---
+# Pod with docker.io image without tag (should default to :latest)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-no-tag
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+---
+# Pod with docker.io image with explicit tag
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-tag
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.21
+---
+# Pod with docker.io image fully qualified with registry, library prefix and tag
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-full-qualified
+spec:
+  containers:
+    - name: nginx
+      image: index.docker.io/library/nginx:latest
+---
+# Pod with docker.io image fully qualified with registry, no library prefix
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-registry-no-library
+spec:
+  containers:
+    - name: nginx
+      image: index.docker.io/nginx:latest
+---
+# Pod with docker.io image with digest
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-digest
+spec:
+  containers:
+    - name: alpine
+      image: alpine@sha256:eece025e432126ce23f223450a0326fbebde39cdf496ea279c5c3ea2882146ad
+---
+# Pod with docker.io image with namespace
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-docker-namespace
+spec:
+  containers:
+    - name: custom
+      image: myuser/myapp:v1
+---
+# Pod with GCR image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-gcr
+spec:
+  containers:
+    - name: gke-app
+      image: gcr.io/google-samples/hello-app:2.0
+---
+# Pod with GHCR image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-ghcr
+spec:
+  containers:
+    - name: github-app
+      image: ghcr.io/myorg/myapp:latest
+---
+# Pod with Quay image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-quay
+spec:
+  containers:
+    - name: quay-app
+      image: quay.io/mydomain/myimage:v2.0
+---
+# Pod with public.ecr.aws image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-ecr-public
+spec:
+  containers:
+    - name: ecr-public-app
+      image: public.ecr.aws/docker/library/postgres:15
+---
+# Pod with registry.k8s.io image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-k8s-registry
+spec:
+  containers:
+    - name: kube-component
+      image: registry.k8s.io/etcd:3.5.0
+---
+# Pod with both containers and initContainers
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-init-containers
+spec:
+  initContainers:
+    - name: init-app
+      image: alpine:latest
+  containers:
+    - name: main-app
+      image: nginx:latest
+---
+# Pod with multiple public registry images
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-multi-registries
+spec:
+  containers:
+    - name: frontend
+      image: nginx:1.24
+    - name: backend
+      image: gcr.io/cloud-builders/docker
+    - name: db
+      image: postgres:15
+---
+# Pod with imagePullSecrets (should NOT mutate)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-secrets
+spec:
+  imagePullSecrets:
+    - name: private-registry-secret
+  containers:
+    - name: private-app
+      image: nginx:latest
+---
+# Pod with already private ECR image (should NOT mutate)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-private-ecr
+spec:
+  containers:
+    - name: private-app
+      image: 123456789012.dkr.ecr.eu-west-1.amazonaws.com/my-private-app:v1
+---
+# Pod with unknown registry (should NOT mutate)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-unknown-registry
+spec:
+  containers:
+    - name: custom-registry
+      image: myregistry.example.com/myapp:v1
