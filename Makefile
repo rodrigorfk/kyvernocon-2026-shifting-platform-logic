@@ -7,7 +7,7 @@ KEDA_VERSION := 2.19.0
 INOTIFY_MAX_USER_WATCHES   := 524288
 INOTIFY_MAX_USER_INSTANCES := 512
 
-.PHONY: create delete status preflight install-keda-crds help
+.PHONY: create delete status preflight install-keda-crds gitea argocd fluxcd help
 
 KYVERNO_ADMISSION_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno:5b0fbc8c2cbd1abf234d165c9915bf6a41f01aa389abb10b38a1a9e665c6267d
 KYVERNO_BACKGROUND_IMAGE   := ko.local/github.com/kyverno/kyverno/cmd/background-controller:6fc45a8f2d181ad07c155b94b9b508b0f13e19f4f4fc56cd548252f7646bd988
@@ -79,5 +79,18 @@ preflight: ## Detect container runtime and ensure inotify limits are set
 		exit 1; \
 	fi
 
+# --- Optional GitOps demos (not deployed by default) ---
+# These demonstrate the "two loops" problem between GitOps controllers and Kyverno.
+# See README.md > GitOps Integration Demo for the full walkthrough.
+
+gitea: ## [Optional] Deploy Gitea in-cluster Git server
+	@$(MAKE) --no-print-directory -C gitea deploy
+
+argocd: ## [Optional] Deploy ArgoCD (requires: make gitea)
+	@$(MAKE) --no-print-directory -C argocd deploy
+
+fluxcd: ## [Optional] Deploy FluxCD with Web UI (requires: make gitea)
+	@$(MAKE) --no-print-directory -C fluxcd deploy
+
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'

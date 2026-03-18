@@ -1,0 +1,14 @@
+repositories:
+  - name: argo
+    url: https://argoproj.github.io/argo-helm
+
+releases:
+  - name: argocd
+    namespace: argocd
+    createNamespace: true
+    chart: argo/argo-cd
+    version: "9.4.12"
+    values:
+      - values/argocd.yaml
+    wait: true
+    waitForJobs: true

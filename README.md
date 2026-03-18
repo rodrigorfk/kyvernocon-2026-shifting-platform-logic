@@ -14,7 +14,7 @@ playground
 └── worker-2
 ```
 
-The control-plane node maps `hostPort:80 → containerPort:30080`. Envoy Gateway is deployed as a NodePort service on that port, enabling access to in-cluster services via `*.127.0.0.1.nip.io` hostnames from the host machine.
+The control-plane node maps `hostPort:80 → containerPort:30080`. Envoy Gateway is deployed as a NodePort service on that port. A single shared `Gateway` resource (named `playground`) in `envoy-gateway-system` routes all `*.127.0.0.1.nip.io` traffic to in-cluster services. Each component registers its own `HTTPRoute` that attaches to this shared Gateway.
 
 ## What Gets Deployed
 
@@ -61,6 +61,9 @@ make delete
 | `status`           | Show cluster info, Kyverno pods, policies, and Envoy Gateway |
 | `install-keda-crds`| Install KEDA CRDs without deploying the KEDA operator    |
 | `preflight`        | Detect container runtime and ensure inotify limits        |
+| `gitea`            | [Optional] Deploy Gitea in-cluster Git server            |
+| `argocd`           | [Optional] Deploy ArgoCD (requires: `make gitea`)        |
+| `fluxcd`           | [Optional] Deploy FluxCD with Web UI (requires: `make gitea`) |
 | `help`             | List all targets                                         |
 
 ## Preflight Checks
@@ -124,6 +127,49 @@ Watches Deployments labeled `kyverno.io/registry-provider: "true"` and generates
 
 **Patterns demonstrated:** GeneratingPolicy with `generator.Apply()`, `resource.List()` for service discovery, synchronization (downstream stays updated), orphaning on policy delete, complex CEL variable chains.
 
+## GitOps Integration Demo
+
+The playground includes optional **ArgoCD** and **FluxCD** configurations that demonstrate the interaction between GitOps controllers and Kyverno mutating policies — the classic ["two loops" problem](https://nirmata.com/2024/01/03/gitops-and-mutating-policies-the-tale-of-two-loops/).
+
+### The Problem
+
+When Kyverno mutates a resource at admission time (e.g., rewriting `serverAddress` in a ScaledObject), the live state diverges from the Git source of truth. GitOps controllers detect this as drift and try to revert it, creating an infinite reconciliation loop.
+
+### The Demo
+
+Uses Example 02 (KEDA Prometheus Address) as the test case, with an in-cluster [Gitea](https://gitea.io/) instance as the Git source.
+
+```bash
+# 1. Deploy Gitea — also applies the example-02 Kyverno policies (platform config)
+make gitea
+
+# 2. ArgoCD: show the broken behavior, then fix it
+make argocd
+make -C argocd demo-broken    # Watch the drift fight in the UI
+make -C argocd demo-fix       # Apply ServerSideDiff fix
+
+# 3. FluxCD: show it works out of the box
+make fluxcd
+make -C fluxcd demo           # SSA handles mutations natively
+```
+
+### UI Access
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Gitea | `http://gitea.127.0.0.1.nip.io` | Credentials: `gitea` / `gitea` |
+| ArgoCD | `http://argocd.127.0.0.1.nip.io` | Password: see `make -C argocd deploy` output |
+| Flux Web UI | `http://flux.127.0.0.1.nip.io` | Anonymous access |
+
+### Key Takeaway
+
+| GitOps Tool | Default Behavior | Works with Kyverno? | Fix |
+|-------------|------------------|----------------------|-----|
+| ArgoCD | Client-side diff | No (drift fight) | `ServerSideDiff=true,IncludeMutationWebhook=true` |
+| FluxCD | Server-Side Apply | Yes (out of the box) | None needed |
+
+See [argocd/README.md](argocd/README.md) and [fluxcd/README.md](fluxcd/README.md) for detailed walkthroughs.
+
 ## Shared Test Infrastructure
 
 The `00-tests-steps/` directory contains a reusable Chainsaw `StepTemplate` that all examples reference. It creates a policy and asserts that both `WebhookConfigured` and `RBACPermissionsGranted` conditions are `True` before proceeding — ensuring the policy is fully operational before test assertions run.
@@ -132,7 +178,7 @@ The `00-tests-steps/` directory contains a reusable Chainsaw `StepTemplate` that
 
 ```
 playground/
-├── Makefile                                    # Cluster lifecycle (create, delete, status, preflight)
+├── Makefile                                    # Cluster lifecycle + optional GitOps targets
 ├── kind-config.yaml                            # Kind cluster definition (3 nodes, K8s v1.35.1)
 ├── .tool-versions                              # Tool versions (kind 0.31.0)
 ├── README.md                                   # This file
@@ -170,11 +216,51 @@ playground/
 │   ├── values/kyverno.yaml                     # Single replicas, extra RBAC
 │   └── dev-setup.sh                            # Local dev: TLS certs, webhook patching
 │
-└── envoy-gateway/                              # Ingress controller
-    ├── Makefile                                # deploy, destroy, status
-    ├── helmfile.yaml                           # envoyproxy/gateway-helm v1.7.1
-    ├── values/envoy-gateway.yaml               # GatewayClass controller name
-    └── base/
-        ├── kustomization.yaml
-        └── gateway.yaml                        # EnvoyProxy (NodePort) + GatewayClass
+├── envoy-gateway/                              # Ingress controller
+│   ├── Makefile                                # deploy, destroy, status
+│   ├── helmfile.yaml                           # envoyproxy/gateway-helm v1.7.1
+│   ├── values/envoy-gateway.yaml               # GatewayClass controller name
+│   └── base/
+│       ├── kustomization.yaml
+│       └── gateway.yaml                        # EnvoyProxy (NodePort) + GatewayClass + shared Gateway + ReferenceGrant
+│
+├── gitops-manifests/                           # Shared workload manifests for GitOps demos
+│   ├── kustomization.yaml
+│   ├── namespace.yaml                          # observability namespace
+│   ├── configmap.yaml                          # keda-prometheus-serveraddress
+│   └── scaledobject.yaml                       # ScaledObject with opt-in annotation
+│
+├── gitea/                                      # In-cluster Git server
+│   ├── Makefile                                # deploy, destroy, status, push-manifests
+│   ├── helmfile.yaml                           # gitea-charts/gitea v12.5.0
+│   ├── values/gitea.yaml                       # SQLite, no SSH, admin gitea/gitea
+│   ├── base/
+│   │   ├── kustomization.yaml
+│   │   ├── init-repo-job.yaml                  # Job: creates repo + pushes manifests
+│   │   └── gateway.yaml                        # HTTPRoute (gitea.127.0.0.1.nip.io → shared Gateway)
+│   └── README.md
+│
+├── argocd/                                     # ArgoCD — two-loops demo
+│   ├── Makefile                                # deploy, destroy, status, demo-broken, demo-fix
+│   ├── helmfile.yaml                           # argo/argo-cd v9.4.12
+│   ├── values/argocd.yaml                      # Minimal: single replicas, no Dex, Gitea repo
+│   ├── base/
+│   │   ├── kustomization.yaml
+│   │   ├── gateway.yaml                        # HTTPRoute (argocd.127.0.0.1.nip.io → shared Gateway)
+│   │   ├── application-broken.yaml             # Client-side diff (shows drift fight)
+│   │   └── application-fixed.yaml              # ServerSideDiff + IncludeMutationWebhook
+│   └── README.md
+│
+└── fluxcd/                                     # FluxCD — works out of the box
+    ├── Makefile                                # deploy, destroy, status, demo
+    ├── helmfile.yaml                           # flux-operator + flux-instance v0.45.0
+    ├── values/
+    │   ├── flux-operator.yaml                  # Web UI enabled, anonymous auth
+    │   └── flux-instance.yaml                  # source + kustomize controllers only
+    ├── base/
+    │   ├── kustomization.yaml
+    │   ├── gateway.yaml                        # HTTPRoute (flux.127.0.0.1.nip.io → shared Gateway)
+    │   ├── gitrepository.yaml                  # Points to Gitea in-cluster repo
+    │   └── kustomization-ssa.yaml              # Flux Kustomization (SSA default)
+    └── README.md
 ```

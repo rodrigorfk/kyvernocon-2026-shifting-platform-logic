@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keda-prometheus-serveraddress
+  namespace: observability
+data:
+  main: http://prometheus-main.example.com:9090

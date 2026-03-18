@@ -1,0 +1,21 @@
+# Flux Kustomization — reconciles the example-02 manifests using Server-Side Apply
+#
+# FluxCD uses Server-Side Apply by default. SSA dry-run triggers Kyverno's mutating
+# webhook before drift detection, so Flux sees the post-mutation state as the expected
+# state. No special configuration is needed — it just works.
+#
+# Compare this with ArgoCD's broken default (client-side diff) which requires explicit
+# ServerSideDiff=true,IncludeMutationWebhook=true to achieve the same behavior.
+#
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: example-02-keda
+  namespace: flux-system
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: example-02
+  path: .
+  prune: true

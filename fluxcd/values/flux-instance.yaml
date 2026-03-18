@@ -1,0 +1,13 @@
+# Flux Instance v0.45.0 values for Kind playground
+# Minimal installation: source + kustomize controllers only
+
+instance:
+  distribution:
+    version: "2.x"
+    registry: "ghcr.io/fluxcd"
+  components:
+    - source-controller
+    - kustomize-controller
+  cluster:
+    type: kubernetes
+    networkPolicy: false

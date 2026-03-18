@@ -1,0 +1,46 @@
+# ArgoCD v3.3.4 values for Kind playground
+# Chart version: 9.4.12
+# Minimal installation for demonstrating the two-loops problem with Kyverno
+
+# Single replica for all components (local dev)
+controller:
+  replicas: 1
+
+server:
+  replicas: 1
+  # Disable TLS on the server (plain HTTP behind Envoy Gateway)
+  extraArgs:
+    - --insecure
+
+repoServer:
+  replicas: 1
+
+# Disable optional components
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+applicationSet:
+  enabled: false
+
+# Configure the Gitea repository
+configs:
+  repositories:
+    example-02:
+      url: http://gitea-http.gitea:3000/gitea/example-02.git
+      type: git
+
+  cm:
+    # Custom health checks: mark ScaledObject as Healthy regardless of status.
+    # KEDA CRDs are installed but the operator is not running in this playground,
+    # so ScaledObjects never populate their status conditions. Without this,
+    # ArgoCD waits indefinitely for a health signal and the app stays Progressing.
+    resource.customizations: |
+      keda.sh/ScaledObject:
+        health.lua: |
+          hs = {}
+          hs.status = "Healthy"
+          hs.message = "ScaledObject health check skipped (KEDA not running)"
+          return hs

@@ -1,0 +1,13 @@
+# Flux Operator v0.45.0 values for Kind playground
+# Enables the Web UI with anonymous authentication for local development
+
+web:
+  enabled: true
+  config:
+    insecure: true
+    authentication:
+      type: Anonymous
+      anonymous:
+        username: admin
+        groups:
+          - system:masters

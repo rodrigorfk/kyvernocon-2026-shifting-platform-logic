@@ -1,0 +1,20 @@
+# This ScaledObject declares serverAddress as "http://my-prometheus.example.com:9090"
+# (the Git source of truth). Kyverno's MutatingPolicy will rewrite it to the value
+# from the centralized ConfigMap at admission time. This difference between the Git
+# state and the live state is what triggers the "two loops" problem with GitOps controllers.
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: prometheus-scaledobject
+  namespace: observability
+  annotations:
+    prometheus.keda.sh/use-central-serveraddress: "true"
+spec:
+  scaleTargetRef:
+    name: my-deployment
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: "http://my-prometheus.example.com:9090"
+        query: sum(rate(http_requests_total{job="app"}[2m]))

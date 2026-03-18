@@ -1,0 +1,34 @@
+# Gitea v1.25.4 values for Kind playground
+# Chart version: 12.5.0
+# Lightweight in-cluster Git server for GitOps demos
+
+replicaCount: 1
+
+gitea:
+  admin:
+    username: gitea
+    password: gitea
+    email: gitea@local.dev
+  config:
+    database:
+      DB_TYPE: sqlite3
+    server:
+      DISABLE_SSH: true
+      DOMAIN: gitea.127.0.0.1.nip.io
+      ROOT_URL: http://gitea.127.0.0.1.nip.io
+    service:
+      DISABLE_REGISTRATION: true
+
+# Disable all external dependencies — use SQLite + in-memory caches
+postgresql:
+  enabled: false
+
+postgresql-ha:
+  enabled: false
+
+redis-cluster:
+  enabled: false
+
+persistence:
+  enabled: true
+  size: 1Gi

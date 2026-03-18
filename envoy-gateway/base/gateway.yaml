@@ -43,3 +43,44 @@ spec:
     kind: EnvoyProxy
     name: kind-proxy
     namespace: envoy-gateway-system
+---
+# Shared Gateway — single entry point for all *.127.0.0.1.nip.io hostnames.
+# HTTPRoutes from other namespaces attach to this Gateway via cross-namespace
+# parentRefs (allowed by the ReferenceGrant below).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: playground
+  namespace: envoy-gateway-system
+spec:
+  gatewayClassName: eg
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+# ReferenceGrant — allows HTTPRoutes in any namespace to attach to the
+# shared "playground" Gateway in envoy-gateway-system.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-routes-from-all-namespaces
+  namespace: envoy-gateway-system
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: gitea
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: argocd
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: flux-system
+  to:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: playground

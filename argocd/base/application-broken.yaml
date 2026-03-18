@@ -1,0 +1,31 @@
+# ArgoCD Application — "broken" configuration (default client-side diff)
+#
+# This Application uses ArgoCD's default client-side diff comparison. When Kyverno
+# mutates the ScaledObject's serverAddress at admission time, ArgoCD sees the mutation
+# as drift from the Git source and continuously tries to revert it. With selfHeal
+# enabled, this creates the classic "two loops" infinite reconciliation fight:
+#
+#   1. ArgoCD syncs → applies ScaledObject from Git (serverAddress: my-prometheus)
+#   2. Kyverno intercepts → mutates serverAddress to prometheus-main (from ConfigMap)
+#   3. ArgoCD detects drift → serverAddress doesn't match Git
+#   4. ArgoCD syncs again → goto 1
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: example-02-keda
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea:3000/gitea/example-02.git
+    targetRevision: main
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

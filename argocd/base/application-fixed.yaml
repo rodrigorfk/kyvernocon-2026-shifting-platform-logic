@@ -1,0 +1,34 @@
+# ArgoCD Application — "fixed" configuration (server-side diff + mutation webhook)
+#
+# This Application uses ArgoCD's server-side diff comparison with mutation webhook
+# support. Instead of comparing the Git manifest directly against the live state,
+# ArgoCD sends the manifest through a server-side apply dry-run, which triggers
+# Kyverno's mutating webhook. The diff is then computed against the post-mutation
+# result, so Kyverno's changes are expected and no drift is detected.
+#
+# Key changes from the broken version:
+#   - compare-options annotation: ServerSideDiff=true,IncludeMutationWebhook=true
+#   - syncOptions: ServerSideApply=true
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: example-02-keda
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/compare-options: ServerSideDiff=true,IncludeMutationWebhook=true
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea:3000/gitea/example-02.git
+    targetRevision: main
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

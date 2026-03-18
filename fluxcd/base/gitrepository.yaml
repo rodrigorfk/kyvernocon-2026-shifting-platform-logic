@@ -1,0 +1,11 @@
+# GitRepository — points to the Gitea in-cluster repo
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: example-02
+  namespace: flux-system
+spec:
+  interval: 30s
+  url: http://gitea-http.gitea:3000/gitea/example-02.git
+  ref:
+    branch: main
