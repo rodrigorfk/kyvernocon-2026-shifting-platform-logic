@@ -12,7 +12,7 @@ spec:
             file: configmap-pre-policy.yaml
     - name: create mutating policy
       use:
-        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        template: ../../fixtures/create-policy-and-wait-ready.yaml
         with:
           bindings:
           - name: file
@@ -24,7 +24,7 @@ spec:
 
     - name: create validating policy
       use:
-        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        template: ../../fixtures/create-policy-and-wait-ready.yaml
         with:
           bindings:
           - name: file

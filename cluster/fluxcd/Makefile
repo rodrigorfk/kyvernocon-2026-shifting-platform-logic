@@ -4,7 +4,7 @@ TIMEOUT := 300s
 
 .PHONY: deploy destroy status demo help
 
-deploy: ## Install Flux Operator + Flux Instance with Web UI (requires: make -C gitea deploy)
+deploy: ## Install Flux Operator + Flux Instance with Web UI (requires: make gitea from playground root)
 	@echo " ⏳ Installing Flux Operator + Flux Instance..."
 	@helmfile --file helmfile.yaml sync --quiet > /dev/null
 	@$(KUBECTL) -n flux-system rollout status deployment/flux-operator --timeout=$(TIMEOUT) > /dev/null

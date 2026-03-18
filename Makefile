@@ -1,5 +1,5 @@
 CLUSTER_NAME := playground
-KIND_CONFIG  := kind-config.yaml
+KIND_CONFIG  := cluster/kind-config.yaml
 KUBECTL      := kubectl --context kind-$(CLUSTER_NAME)
 KEDA_VERSION := 2.19.0
 
@@ -21,8 +21,8 @@ create: preflight ## Create the Kind cluster and install Kyverno + Envoy Gateway
 	@echo " ✓ Kyverno images loaded"
 	@echo ""
 	@$(MAKE) --no-print-directory install-keda-crds
-	@$(MAKE) --no-print-directory -C kyverno deploy
-	@$(MAKE) --no-print-directory -C envoy-gateway deploy
+	@$(MAKE) --no-print-directory -C cluster/kyverno deploy
+	@$(MAKE) --no-print-directory -C cluster/envoy-gateway deploy
 
 install-keda-crds: ## Install KEDA CRDs (without deploying KEDA itself)
 	@echo " ⏳ Installing KEDA CRDs $(KEDA_VERSION)..."
@@ -37,9 +37,9 @@ status: ## Show cluster info, Kyverno, and Envoy Gateway status
 	@echo ""
 	@$(KUBECTL) get nodes
 	@echo ""
-	@$(MAKE) --no-print-directory -C kyverno status
+	@$(MAKE) --no-print-directory -C cluster/kyverno status
 	@echo ""
-	@$(MAKE) --no-print-directory -C envoy-gateway status
+	@$(MAKE) --no-print-directory -C cluster/envoy-gateway status
 
 preflight: ## Detect container runtime and ensure inotify limits are set
 	@if colima status >/dev/null 2>&1; then \
@@ -84,13 +84,13 @@ preflight: ## Detect container runtime and ensure inotify limits are set
 # See README.md > GitOps Integration Demo for the full walkthrough.
 
 gitea: ## [Optional] Deploy Gitea in-cluster Git server
-	@$(MAKE) --no-print-directory -C gitea deploy
+	@$(MAKE) --no-print-directory -C cluster/gitea deploy
 
 argocd: ## [Optional] Deploy ArgoCD (requires: make gitea)
-	@$(MAKE) --no-print-directory -C argocd deploy
+	@$(MAKE) --no-print-directory -C cluster/argocd deploy
 
 fluxcd: ## [Optional] Deploy FluxCD with Web UI (requires: make gitea)
-	@$(MAKE) --no-print-directory -C fluxcd deploy
+	@$(MAKE) --no-print-directory -C cluster/fluxcd deploy
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'

@@ -12,7 +12,7 @@ deploy: ## Install Gitea, apply example-02 policies, and initialize the reposito
 	@echo " ✓ Gitea ready"
 	@echo ""
 	@echo " ⏳ Applying example-02 Kyverno policies (platform config)..."
-	@$(KUBECTL) apply -f ../02-keda-prometheus-address/ > /dev/null
+	@$(KUBECTL) apply -f ../../02-keda-prometheus-address/ > /dev/null
 	@$(KUBECTL) wait mutatingpolicy/keda-prometheus-serveraddress-scaledobject \
 		--for=jsonpath='{.status.conditionStatus.ready}'=true \
 		--timeout=$(TIMEOUT) > /dev/null
@@ -30,7 +30,7 @@ deploy: ## Install Gitea, apply example-02 policies, and initialize the reposito
 
 destroy: ## Remove Gitea and example-02 policies
 	@$(KUSTOMIZE) base/ | $(KUBECTL) delete --ignore-not-found -f - > /dev/null 2>&1
-	@$(KUBECTL) delete -f ../02-keda-prometheus-address/ --ignore-not-found > /dev/null 2>&1
+	@$(KUBECTL) delete -f ../../02-keda-prometheus-address/ --ignore-not-found > /dev/null 2>&1
 	@helmfile --file helmfile.yaml destroy --quiet > /dev/null
 	@echo " ✓ Gitea removed"
 

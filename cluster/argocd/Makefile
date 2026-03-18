@@ -5,7 +5,7 @@ TIMEOUT   := 180s
 
 .PHONY: deploy destroy status demo-broken demo-fix demo-clean help
 
-deploy: ## Install ArgoCD (requires: make -C gitea deploy)
+deploy: ## Install ArgoCD (requires: make gitea from playground root)
 	@echo " ⏳ Installing ArgoCD..."
 	@helmfile --file helmfile.yaml sync --quiet > /dev/null
 	@$(KUBECTL) -n argocd rollout status deployment/argocd-server --timeout=$(TIMEOUT) > /dev/null

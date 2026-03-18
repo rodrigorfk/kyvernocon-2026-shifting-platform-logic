@@ -13,7 +13,7 @@ spec:
 
     - name: create generating policy
       use:
-        template: ../../00-tests-steps/create-policy-and-wait-ready.yaml
+        template: ../../fixtures/create-policy-and-wait-ready.yaml
         with:
           bindings:
           - name: file
