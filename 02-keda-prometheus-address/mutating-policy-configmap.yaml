@@ -28,7 +28,7 @@ spec:
     # Only trigger when the specific ConfigMap is modified
     - name: is-target-configmap
       expression: >-
-        params.originalRequest.object.metadata.name == "keda-prometheus-serveraddress"
+        request.object.metadata.name == "keda-prometheus-serveraddress"
   targetMatchConstraints:
     resourceRules:
       - apiGroups: ["keda.sh"]
@@ -37,7 +37,7 @@ spec:
   variables:
     - name: serverAddress
       expression: >-
-        params.originalRequest.object.data["main"]
+        request.object.data["main"]
   mutations:
     - patchType: JSONPatch
       jsonPatch:
