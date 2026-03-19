@@ -10,7 +10,7 @@
 apiVersion: policies.kyverno.io/v1
 kind: MutatingPolicy
 metadata:
-  name: mutate-public-registry-containers
+  name: 02-mutate-public-registry-containers
 spec:
   matchConstraints:
     resourceRules:

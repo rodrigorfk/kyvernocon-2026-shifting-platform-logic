@@ -21,7 +21,7 @@ spec:
           - name: kind
             value: MutatingPolicy
           - name: name
-            value: mutate-public-registry-containers
+            value: 02-mutate-public-registry-containers
 
     - name: create mutating policy
       use:
@@ -33,7 +33,7 @@ spec:
           - name: kind
             value: MutatingPolicy
           - name: name
-            value: mutate-ecr-cross-region
+            value: 01-mutate-ecr-cross-region
 
     - name: create mutating policy
       use:
@@ -45,7 +45,7 @@ spec:
           - name: kind
             value: MutatingPolicy
           - name: name
-            value: mutate-imagepullsecret-injection
+            value: 03-mutate-imagepullsecret-injection
 
     - name: test comprehensive registry mutations
       try:

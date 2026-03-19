@@ -15,7 +15,7 @@
 apiVersion: policies.kyverno.io/v1
 kind: MutatingPolicy
 metadata:
-  name: mutate-ecr-cross-region
+  name: 01-mutate-ecr-cross-region
 spec:
   webhookConfiguration:
     timeoutSeconds: 15
