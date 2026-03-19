@@ -15,11 +15,6 @@ KYVERNO_BACKGROUND_IMAGE   := ko.local/github.com/kyverno/kyverno/cmd/background
 create: preflight ## Create the Kind cluster and install Kyverno + Envoy Gateway
 	@kind create cluster --name $(CLUSTER_NAME) --config $(KIND_CONFIG)
 	@echo ""
-	@echo " ⏳ Loading Kyverno images into Kind..."
-	@kind load docker-image $(KYVERNO_ADMISSION_IMAGE) --name $(CLUSTER_NAME)
-	@kind load docker-image $(KYVERNO_BACKGROUND_IMAGE) --name $(CLUSTER_NAME)
-	@echo " ✓ Kyverno images loaded"
-	@echo ""
 	@$(MAKE) --no-print-directory install-keda-crds
 	@$(MAKE) --no-print-directory -C cluster/kyverno deploy
 	@$(MAKE) --no-print-directory -C cluster/envoy-gateway deploy

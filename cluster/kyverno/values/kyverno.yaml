@@ -6,9 +6,12 @@ admissionController:
   replicas: 1
   container:
     image:
-      registry: ko.local
-      repository: github.com/kyverno/kyverno/cmd/kyverno
-      tag: 5b0fbc8c2cbd1abf234d165c9915bf6a41f01aa389abb10b38a1a9e665c6267d
+      registry: ghcr.io
+      tag: 597125139f36f7b1d2cfd9105ece9f39bf793ccc
+  initContainer:
+    image:
+      registry: ghcr.io
+      tag: 597125139f36f7b1d2cfd9105ece9f39bf793ccc
   rbac:
     clusterRole: &clusterRole
       extraResources:
@@ -29,9 +32,8 @@ admissionController:
 backgroundController:
   replicas: 1
   image:
-    registry: ko.local
-    repository: github.com/kyverno/kyverno/cmd/background-controller
-    tag: 6fc45a8f2d181ad07c155b94b9b508b0f13e19f4f4fc56cd548252f7646bd988
+    registry: ghcr.io
+    tag: 597125139f36f7b1d2cfd9105ece9f39bf793ccc
   rbac:
     clusterRole: *clusterRole
 
