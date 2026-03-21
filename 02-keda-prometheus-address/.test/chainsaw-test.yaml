@@ -34,15 +34,24 @@ spec:
           - name: name
             value: keda-prometheus-serveraddress-configmap
 
-    - name: create central serverAddress configmap
-      try:
-        - apply:
-            file: configmap-updated.yaml
-
     - name: create scaledobject and verify initial mutation
       try:
         - apply:
             file: scaledobject.yaml
+        - assert:
+            file: scaledobject.yaml
+
+    - name: create central serverAddress configmap and verify initial mutation
+      try:
+        - apply:
+            file: configmap.yaml
+        - assert:
+            file: scaledobject-assert-initial.yaml
+
+    - name: update central serverAddress configmap and verify object was updated
+      try:
+        - apply:
+            file: configmap-updated.yaml
         - assert:
             file: scaledobject-assert-updated.yaml
 
@@ -70,3 +79,8 @@ spec:
             duration: 5s
         - assert:
             file: scaledobject-no-opt-in.yaml
+
+    - name: original ScaledObject should have the updated serverAddress from the central ConfigMap
+      try:
+        - assert:
+            file: scaledobject-assert-updated-2.yaml

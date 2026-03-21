@@ -24,6 +24,9 @@ spec:
         has(object.metadata.annotations) &&
         "prometheus.keda.sh/use-central-serveraddress" in object.metadata.annotations &&
         object.metadata.annotations["prometheus.keda.sh/use-central-serveraddress"] == "true"
+    - name: has-server-address-triggers
+      expression: >-
+        variables.serverAddress != ""
   variables:
     # Load the centralized Prometheus server address from the ConfigMap
     - name: serverAddressCM
@@ -31,7 +34,9 @@ spec:
         resource.Get("v1", "configmaps", "observability", "keda-prometheus-serveraddress")
     - name: serverAddress
       expression: >-
-        variables.serverAddressCM.data["main"]
+        has(variables.serverAddressCM) && has(variables.serverAddressCM.data) && "main" in variables.serverAddressCM.data
+        ? string(variables.serverAddressCM.data["main"])
+        : ""
   mutations:
     # Iterate over triggers, filter for prometheus type, and patch the serverAddress
     - patchType: JSONPatch

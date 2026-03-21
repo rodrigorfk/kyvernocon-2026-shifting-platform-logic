@@ -24,11 +24,6 @@ spec:
     namespaceSelector:
       matchLabels:
         kubernetes.io/metadata.name: observability
-  matchConditions:
-    # Only trigger when the specific ConfigMap is modified
-    - name: is-target-configmap
-      expression: >-
-        request.object.metadata.name == "keda-prometheus-serveraddress"
   targetMatchConstraints:
     resourceRules:
       - apiGroups: ["keda.sh"]
@@ -38,11 +33,15 @@ spec:
     - name: serverAddress
       expression: >-
         request.object.data["main"]
+    - name: configMapName
+      expression: >-
+        request.object.metadata.name
   mutations:
     - patchType: JSONPatch
       jsonPatch:
         expression: >-
           has(object.metadata.annotations)
+          && variables.configMapName == "keda-prometheus-serveraddress"
           && object.metadata.annotations.exists(k,
             k == "prometheus.keda.sh/use-central-serveraddress"
           ) 

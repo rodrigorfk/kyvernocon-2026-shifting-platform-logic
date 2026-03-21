@@ -1,0 +1,13 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: prometheus-scaledobject
+  namespace: observability
+spec:
+  scaleTargetRef:
+    name: my-deployment
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-updated-2.example.com:9090
+        query: sum(rate(http_requests_total{job="app"}[2m]))
