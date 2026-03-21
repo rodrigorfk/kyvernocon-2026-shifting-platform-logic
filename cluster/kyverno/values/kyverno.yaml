@@ -7,11 +7,11 @@ admissionController:
   container:
     image:
       registry: ghcr.io
-      tag: 597125139f36f7b1d2cfd9105ece9f39bf793ccc
+      tag: ed916fa73a08d4f57b4398a42ed88f7d86d0a0ed
   initContainer:
     image:
       registry: ghcr.io
-      tag: 597125139f36f7b1d2cfd9105ece9f39bf793ccc
+      tag: ed916fa73a08d4f57b4398a42ed88f7d86d0a0ed
   rbac:
     clusterRole: &clusterRole
       extraResources:
@@ -33,7 +33,7 @@ backgroundController:
   replicas: 1
   image:
     registry: ghcr.io
-    tag: 597125139f36f7b1d2cfd9105ece9f39bf793ccc
+    tag: ed916fa73a08d4f57b4398a42ed88f7d86d0a0ed
   rbac:
     clusterRole: *clusterRole
 
