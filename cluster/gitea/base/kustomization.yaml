@@ -8,10 +8,15 @@ configMapGenerator:
   - name: gitops-manifests
     namespace: gitea
     files:
-      - namespace.yaml=../../gitops-manifests/namespace.yaml
-      - configmap.yaml=../../gitops-manifests/configmap.yaml
-      - scaledobject.yaml=../../gitops-manifests/scaledobject.yaml
-      - kustomization.yaml=../../gitops-manifests/kustomization.yaml
+      # platform/ — Kyverno policies + namespace + ConfigMap
+      - platform-namespace.yaml=../../gitops-manifests/platform/namespace.yaml
+      - platform-configmap.yaml=../../gitops-manifests/platform/configmap.yaml     
+      - platform-policy-scaledobject.yaml=../../../02-keda-prometheus-address/mutating-policy-scaledobject.yaml
+      - platform-policy-configmap.yaml=../../../02-keda-prometheus-address/mutating-policy-configmap.yaml
+      - platform-kustomization.yaml=../../gitops-manifests/platform/kustomization.yaml
+      # workloads/ — ScaledObject
+      - workloads-scaledobject.yaml=../../gitops-manifests/workloads/scaledobject.yaml
+      - workloads-kustomization.yaml=../../gitops-manifests/workloads/kustomization.yaml
 
 resources:
   - init-repo-job.yaml

@@ -15,12 +15,14 @@ kind: Application
 metadata:
   name: example-02-keda
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
     repoURL: http://gitea-http.gitea:3000/gitea/example-02.git
     targetRevision: main
-    path: .
+    path: workloads
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

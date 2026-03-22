@@ -1,0 +1,32 @@
+# ArgoCD Application — platform configuration (Kyverno policies + namespace + ConfigMap)
+#
+# Manages the platform layer for the example-02 demo: the two MutatingPolicies,
+# the observability namespace, and the centralized Prometheus ConfigMap.
+# These resources are deployed as part of ArgoCD setup (applied in make deploy)
+# and must be healthy before the workloads Application is used in the demo.
+#
+# Server-Side Apply is used here; there is no "broken" variant for this application
+# because Kyverno policies are not themselves mutated by Kyverno.
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: example-02-platform
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea:3000/gitea/example-02.git
+    targetRevision: main
+    path: platform
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

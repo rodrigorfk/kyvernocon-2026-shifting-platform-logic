@@ -46,7 +46,6 @@ The key annotation is `IncludeMutationWebhook=true` — without it, server-side 
 
 1. The Kind cluster must be running with Kyverno installed (`make create` from the playground root)
 2. Gitea must be deployed with the example-02 manifests (`make -C gitea deploy`)
-3. The Kyverno mutating policies must be applied (`kubectl apply -f 02-keda-prometheus-address/`)
 
 ## Demo Walkthrough
 
@@ -61,6 +60,8 @@ make deploy
 ```bash
 make demo-broken
 ```
+
+This deploys the `example-02-keda` workloads Application with client-side diff. The `example-02-platform` Application (deployed as part of `make deploy`) already manages the Kyverno policies.
 
 Open `http://argocd.127.0.0.1.nip.io` (user: `admin`, password shown in deploy output). You should see the `example-02-keda` Application flipping between **Synced** and **OutOfSync** as ArgoCD and Kyverno fight over the `serverAddress` field.
 
@@ -106,8 +107,9 @@ kubectl -n observability get scaledobject prometheus-scaledobject \
 | `deploy` | Install ArgoCD (requires Gitea) |
 | `destroy` | Remove ArgoCD and all Applications |
 | `status` | Show ArgoCD pods and Applications |
-| `demo-broken` | Deploy Application with client-side diff (shows drift fight) |
+| `demo-broken` | Deploy workloads Application with client-side diff (shows drift fight) |
 | `demo-fix` | Apply fix: ServerSideDiff + IncludeMutationWebhook |
+| `demo-clean` | Delete both Applications; ArgoCD prunes all owned resources |
 | `help` | List all targets |
 
 ## File Structure
@@ -121,7 +123,8 @@ argocd/
 ├── base/
 │   ├── kustomization.yaml              # Gateway resources
 │   ├── gateway.yaml                    # Gateway + HTTPRoute (argocd.127.0.0.1.nip.io)
-│   ├── application-broken.yaml         # Application with client-side diff (broken)
-│   └── application-fixed.yaml          # Application with server-side diff (fixed)
+│   ├── application-platform.yaml       # Platform app: policies + namespace + ConfigMap (applied in make deploy)
+│   ├── application-broken.yaml         # Workloads app: client-side diff (shows drift fight)
+│   └── application-fixed.yaml          # Workloads app: ServerSideDiff + IncludeMutationWebhook
 └── README.md                           # This file
 ```

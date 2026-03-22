@@ -231,11 +231,14 @@ playground/
     │       ├── kustomization.yaml
     │       └── gateway.yaml                    # EnvoyProxy (NodePort) + GatewayClass + shared Gateway + ReferenceGrant
     │
-    ├── gitops-manifests/                       # Shared workload manifests for GitOps demos
-    │   ├── kustomization.yaml
-    │   ├── namespace.yaml                      # observability namespace
-    │   ├── configmap.yaml                      # keda-prometheus-serveraddress
-    │   └── scaledobject.yaml                   # ScaledObject with opt-in annotation
+    ├── gitops-manifests/                       # Shared manifests for GitOps demos (two-layer split)
+    │   ├── platform/                           # Platform layer: managed by GitOps platform Application/Kustomization
+    │   │   ├── kustomization.yaml
+    │   │   ├── namespace.yaml                  # observability namespace
+    │   │   └── configmap.yaml                  # keda-prometheus-serveraddress
+    │   └── workloads/                          # Workloads layer: demonstrates the two-loops problem
+    │       ├── kustomization.yaml
+    │       └── scaledobject.yaml               # ScaledObject with opt-in annotation
     │
     ├── gitea/                                  # In-cluster Git server
     │   ├── Makefile                            # deploy, destroy, status, push-manifests

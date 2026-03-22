@@ -51,17 +51,23 @@ spec:
               git config user.name "Gitea Init"
               git config user.email "init@local.dev"
 
-              # Copy manifests from the mounted ConfigMap
-              cp /manifests/namespace.yaml .
-              cp /manifests/configmap.yaml .
-              cp /manifests/scaledobject.yaml .
-              cp /manifests/kustomization.yaml .
+              # Copy manifests from the mounted ConfigMap into platform/ and workloads/ subdirs
+              mkdir -p platform workloads
+
+              cp /manifests/platform-namespace.yaml platform/namespace.yaml
+              cp /manifests/platform-configmap.yaml platform/configmap.yaml
+              cp /manifests/platform-policy-scaledobject.yaml platform/mutating-policy-scaledobject.yaml
+              cp /manifests/platform-policy-configmap.yaml platform/mutating-policy-configmap.yaml
+              cp /manifests/platform-kustomization.yaml platform/kustomization.yaml
+
+              cp /manifests/workloads-scaledobject.yaml workloads/scaledobject.yaml
+              cp /manifests/workloads-kustomization.yaml workloads/kustomization.yaml
 
               git add -A
               if git diff --cached --quiet; then
                 echo "No changes to commit"
               else
-                git commit -m "Initial gitops manifests for example-02"
+                git commit -m "Initial gitops manifests for example-02 (platform/ + workloads/)"
                 git push origin main
                 echo "Manifests pushed to ${GITEA_URL}/${GITEA_USER}/${REPO_NAME}"
               fi

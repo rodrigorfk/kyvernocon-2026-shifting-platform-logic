@@ -17,23 +17,36 @@ deploy: ## Install Flux Operator + Flux Instance with Web UI (requires: make git
 	@echo ""
 	@echo "   Flux Web UI: http://flux.127.0.0.1.nip.io"
 
-demo: ## Deploy GitRepository + Kustomization (SSA — works out of the box with Kyverno)
-	@echo " ⏳ Deploying Flux GitRepository + Kustomization..."
-	@$(KUBECTL) apply -f base/gitrepository.yaml
-	@$(KUBECTL) apply -f base/kustomization-ssa.yaml
-	@echo " ✓ Flux resources deployed — Flux will reconcile using Server-Side Apply"
+demo: ## Deploy GitRepository + platform and workloads Kustomizations (SSA — works out of the box with Kyverno)
+	@echo " ⏳ Deploying Flux GitRepository + platform Kustomization (policies + namespace + ConfigMap)..."
+	@$(KUBECTL) apply -f base/gitrepository.yaml > /dev/null
+	@$(KUBECTL) apply -f base/kustomization-platform.yaml > /dev/null
+	@$(KUBECTL) -n flux-system wait kustomization/example-02-platform \
+		--for=condition=Ready \
+		--timeout=$(TIMEOUT) > /dev/null
+	@sleep 5 # wait for Kyverno to apply policies before deploying workloads
+	@echo " ✓ Platform layer ready — policies and ConfigMap are in place"
 	@echo ""
-	@echo "   # Watch reconciliation status:"
-	@echo "   kubectl -n flux-system get kustomization example-02-keda -w"
+	@echo " ⏳ Deploying workloads Kustomization (ScaledObject)..."
+	@$(KUBECTL) apply -f base/kustomization-ssa.yaml > /dev/null
+	@echo " ✓ Flux resources deployed — Flux will reconcile both layers using Server-Side Apply"
+	@echo ""
+	@echo "   # Watch reconciliation status for both Kustomizations:"
+	@echo "   kubectl -n flux-system get kustomization example-02-platform example-02-keda -w"
 	@echo ""
 	@echo "   # Verify the mutation is preserved:"
 	@echo "   kubectl -n observability get scaledobject prometheus-scaledobject -o jsonpath='{.spec.triggers[0].metadata.serverAddress}'"
 	@echo ""
 	@echo "   # Or open the Flux Web UI: http://flux.127.0.0.1.nip.io"
 
-destroy: ## Remove FluxCD
+demo-clean: ## Delete the demo resources and managed resources (reset between runs)
+	@echo " ⏳ Cleaning up demo resources..."
 	@$(KUBECTL) delete -f base/kustomization-ssa.yaml --ignore-not-found > /dev/null 2>&1
+	@$(KUBECTL) delete -f base/kustomization-platform.yaml --ignore-not-found > /dev/null 2>&1
 	@$(KUBECTL) delete -f base/gitrepository.yaml --ignore-not-found > /dev/null 2>&1
+	@echo " ✓ Demo resources removed — Flux will prune all owned resources (policies, namespace, ScaledObject)"
+
+destroy: demo-clean ## Remove FluxCD
 	@$(KUBECTL) delete -k base/ --ignore-not-found > /dev/null 2>&1
 	@helmfile --file helmfile.yaml destroy --quiet > /dev/null
 	@echo " ✓ FluxCD removed"

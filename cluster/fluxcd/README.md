@@ -28,10 +28,9 @@ Compare this with ArgoCD's default **client-side diff**, which compares Git dire
 
 1. The Kind cluster must be running with Kyverno installed (`make create` from the playground root)
 2. Gitea must be deployed with the example-02 manifests (`make -C gitea deploy`)
-3. The Kyverno mutating policies must be applied (`kubectl apply -f 02-keda-prometheus-address/`)
-4. If ArgoCD was previously tested, clean up its Application first:
+3. If ArgoCD was previously tested, clean up its Applications first:
    ```bash
-   kubectl -n argocd delete app example-02-keda --ignore-not-found
+   kubectl -n argocd delete app example-02-keda example-02-platform --ignore-not-found
    kubectl delete ns observability --wait=false
    ```
 
@@ -49,15 +48,17 @@ make deploy
 make demo
 ```
 
+This deploys a GitRepository and two Kustomizations: `example-02-platform` (policies + namespace + ConfigMap) and `example-02-keda` (ScaledObject).
+
 ### 3. Verify it works
 
-Open `http://flux.127.0.0.1.nip.io` — you should see the `example-02-keda` Kustomization with status **Ready**.
+Open `http://flux.127.0.0.1.nip.io` — you should see both Kustomizations with status **Ready**.
 
 From the CLI:
 
 ```bash
-# Kustomization should show Ready=True
-kubectl -n flux-system get kustomization example-02-keda
+# Both Kustomizations should show Ready=True
+kubectl -n flux-system get kustomization example-02-platform example-02-keda
 
 # The mutation is preserved — serverAddress reflects the ConfigMap value
 kubectl -n observability get scaledobject prometheus-scaledobject \
@@ -81,7 +82,8 @@ No drift, no fighting, no special annotations. SSA handles it.
 | `deploy` | Install Flux Operator + Flux Instance with Web UI |
 | `destroy` | Remove FluxCD |
 | `status` | Show Flux pods, instance, GitRepositories, Kustomizations |
-| `demo` | Deploy GitRepository + Kustomization (SSA, works out of the box) |
+| `demo` | Deploy GitRepository + platform and workloads Kustomizations (SSA, works out of the box) |
+| `demo-clean` | Delete the Kustomizations and GitRepository; Flux prunes all owned resources (reset between runs) |
 | `help` | List all targets |
 
 ## Comparison with ArgoCD
@@ -106,6 +108,7 @@ fluxcd/
 │   ├── kustomization.yaml              # Gateway resources
 │   ├── gateway.yaml                    # Gateway + HTTPRoute (flux.127.0.0.1.nip.io)
 │   ├── gitrepository.yaml              # Points to Gitea in-cluster repo
-│   └── kustomization-ssa.yaml          # Flux Kustomization (SSA default)
+│   ├── kustomization-platform.yaml     # Flux Kustomization for platform/ (policies + namespace + ConfigMap)
+│   └── kustomization-ssa.yaml          # Flux Kustomization for workloads/ (ScaledObject, SSA default)
 └── README.md                           # This file
 ```

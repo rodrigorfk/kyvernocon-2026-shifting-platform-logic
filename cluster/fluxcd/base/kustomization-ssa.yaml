@@ -17,5 +17,5 @@ spec:
   sourceRef:
     kind: GitRepository
     name: example-02
-  path: .
+  path: workloads
   prune: true

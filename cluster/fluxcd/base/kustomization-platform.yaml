@@ -1,0 +1,22 @@
+# Flux Kustomization — reconciles the platform manifests using Server-Side Apply
+#
+# Manages the platform layer for the example-02 demo: the two MutatingPolicies,
+# the observability namespace, and the centralized Prometheus ConfigMap.
+# This Kustomization is applied as part of the demo setup (make demo) and must
+# be healthy before the workloads Kustomization is meaningful.
+#
+# FluxCD uses Server-Side Apply by default, so there is no drift issue here —
+# Kyverno policies are not themselves mutated by Kyverno.
+#
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: example-02-platform
+  namespace: flux-system
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: example-02
+  path: platform
+  prune: true

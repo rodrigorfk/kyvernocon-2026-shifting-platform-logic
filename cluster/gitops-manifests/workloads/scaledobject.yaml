@@ -16,5 +16,4 @@ spec:
   triggers:
     - type: prometheus
       metadata:
-        serverAddress: "http://my-prometheus.example.com:9090"
         query: sum(rate(http_requests_total{job="app"}[2m]))
