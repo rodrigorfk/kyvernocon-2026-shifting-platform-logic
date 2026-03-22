@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-missing-image
+spec:
+  containers:
+    - name: nginx

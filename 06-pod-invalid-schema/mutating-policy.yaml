@@ -1,0 +1,36 @@
+#
+# This policy is designed to mutate Pods that have an invalid container schema, specifically those that have a container with a name but are missing the required image field. The policy will add the image field to the container spec, using the same value as the container name.
+# The test will create a Pod with a container that has a name but no image, and then assert that the policy correctly mutates the Pod by adding the image field with the same value as the container name.
+#
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: mutate-pod-invalid-schema
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+  matchConditions:
+    # Has missing image field in container spec, which is required by the Pod schema. The policy will fix it by adding the image field with the same value as the container name.
+    - name: has-invalid-container-schema
+      expression: >-
+        object.spec.containers.exists(c,
+          has(c.name) && !has(c.image)
+        )
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          object.spec.containers.filter(c,
+            has(c.name) && !has(c.image)
+          ).map(c,
+            JSONPatch{
+              op: "replace",
+              path: "/spec/containers/" + string(object.spec.containers.indexOf(c)) + "/image",
+              value: c.name
+            }
+          )
