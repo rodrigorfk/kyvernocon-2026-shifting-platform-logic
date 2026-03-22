@@ -6,6 +6,8 @@ This use case demonstrates how to implement an **immutable audit trail** at the 
 
 This pattern is useful for compliance and governance scenarios where teams need to know who originally created a resource, without relying on external audit systems or manual conventions.
 
+> **Note:** This policy requires a bugfix not yet included in a stable Kyverno release. The playground is configured to use a pinned `main` branch image to include [kyverno/kyverno#15589](https://github.com/kyverno/kyverno/pull/15589).
+
 ### Policies
 
 | Policy | Type | Trigger | Action |

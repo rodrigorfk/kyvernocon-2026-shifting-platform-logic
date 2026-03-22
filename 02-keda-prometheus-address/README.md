@@ -11,6 +11,8 @@ The synchronisation works in both directions:
 
 This pattern shifts configuration management into the control plane, eliminating manual updates and configuration drift across teams.
 
+> **Note:** This policy requires bugfixes not yet included in a stable Kyverno release. The playground is configured to use a pinned `main` branch image to include [kyverno/kyverno#15669](https://github.com/kyverno/kyverno/pull/15669) and [kyverno/kyverno#15693](https://github.com/kyverno/kyverno/pull/15693).
+
 ### Policies
 
 | Policy | Type | Trigger | Action |

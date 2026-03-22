@@ -25,6 +25,11 @@ The `make create` target sets up the full environment:
 3. **KEDA CRDs v2.19.0** — Only the CRDs (no KEDA operator), needed by Example 02
 4. **Envoy Gateway v1.7.1** — Ingress controller with Gateway API support
 
+> **Note on Kyverno image versions:** The Helm chart is pinned to version `3.7.1` (Kyverno v1.17.1), but the admission controller and background controller images are configured to use a pinned commit from the `main` branch (see [`cluster/kyverno/values/kyverno.yaml`](cluster/kyverno/values/kyverno.yaml)). This is required because some policy examples depend on bugfixes that have not yet been included in a stable release:
+>
+> - [kyverno/kyverno#15589](https://github.com/kyverno/kyverno/pull/15589) — required by **01 — Record Creation Details**
+> - [kyverno/kyverno#15669](https://github.com/kyverno/kyverno/pull/15669) and [kyverno/kyverno#15693](https://github.com/kyverno/kyverno/pull/15693) — required by **02 — KEDA Prometheus Address**
+
 ## Prerequisites
 
 - [Kind](https://kind.sigs.k8s.io/) v0.31+
